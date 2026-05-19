@@ -32,6 +32,12 @@ export function Header() {
           >
             Workflows
           </Link>
+          <Link
+            href="/about"
+            className="rounded-xl px-4 py-2 text-text-primary hover:bg-surface-2 hover:shadow-[2px_2px_0px_#1A1A1A] hover:border-2 hover:border-border border-2 border-transparent transition-all duration-base ease-enter"
+          >
+            About
+          </Link>
           <SignedIn>
             <Link
               href="/profile"
