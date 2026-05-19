@@ -16,13 +16,12 @@ const outfit = Outfit({
 })
 
 export const metadata: Metadata = {
-  title: 'nori — find AI tools by what they do',
-  description:
-    'Describe what you want to do, get semantically matched AI tool recommendations. Built around embeddings, not keyword search.',
+  title: 'Nori — Discover AI Tools',
+  description: 'Find the perfect AI tool for any task. Semantic search powered by AI.',
   metadataBase: new URL('https://nori.app'),
   openGraph: {
-    title: 'nori',
-    description: 'find AI tools by what they do',
+    title: 'Nori — Discover AI Tools',
+    description: 'Find the perfect AI tool for any task. Semantic search powered by AI.',
   },
 }
 
@@ -30,6 +29,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <ClerkProvider>
       <html lang="en" className={outfit.variable}>
+        <head>
+          {/* Warm TLS for the two logo sources so first paint isn't waiting on DNS+TLS for 8+ parallel <img> requests on the trending grid. */}
+          <link rel="preconnect" href="https://logo.clearbit.com" crossOrigin="" />
+          <link rel="preconnect" href="https://www.google.com" crossOrigin="" />
+          <link rel="dns-prefetch" href="https://logo.clearbit.com" />
+          <link rel="dns-prefetch" href="https://www.google.com" />
+        </head>
         <body className="relative min-h-screen bg-background font-sans text-text-primary antialiased overflow-x-hidden">
           <PostHogProvider>
             <Suspense fallback={null}>

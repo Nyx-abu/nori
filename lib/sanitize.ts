@@ -27,3 +27,70 @@ export function clampLimit(input: unknown, fallback = 20, max = 50): number {
   if (!Number.isFinite(n) || n < 1) return fallback
   return Math.min(n, max)
 }
+
+export function stripHtml(input: string): string {
+  return input
+    .replace(/<\/?[a-zA-Z][^>]*>/g, ' ')
+    .replace(/&(?:#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+export type WorkflowNodeInput = {
+  order: number
+  toolName: string
+  toolSlug: string | null
+  toolDomain: string | null
+  useCase: string
+  positionX: number
+  positionY: number
+}
+
+export type SanitizedWorkflow = {
+  title: string
+  description: string
+  isPublic: boolean
+  nodes: WorkflowNodeInput[]
+}
+
+export function sanitizeWorkflowInput(raw: unknown): SanitizedWorkflow | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const r = raw as Record<string, unknown>
+
+  const title = typeof r.title === 'string' ? stripHtml(r.title).slice(0, 100) : ''
+  if (title.length < 1) return null
+
+  const description =
+    typeof r.description === 'string' ? stripHtml(r.description).slice(0, 500) : ''
+  const isPublic = r.isPublic === true
+
+  if (!Array.isArray(r.nodes) || r.nodes.length < 1 || r.nodes.length > 10) return null
+
+  const nodes: WorkflowNodeInput[] = []
+  for (let i = 0; i < r.nodes.length; i++) {
+    const n = r.nodes[i]
+    if (typeof n !== 'object' || n === null) return null
+    const item = n as Record<string, unknown>
+    const toolName =
+      typeof item.toolName === 'string' && item.toolName.trim().length > 0
+        ? stripHtml(item.toolName).slice(0, 100)
+        : 'Unknown Tool'
+    nodes.push({
+      order: i,
+      toolName,
+      toolSlug:
+        typeof item.toolSlug === 'string' && item.toolSlug.length > 0
+          ? item.toolSlug.slice(0, 100)
+          : null,
+      toolDomain:
+        typeof item.toolDomain === 'string' && item.toolDomain.length > 0
+          ? item.toolDomain.slice(0, 253)
+          : null,
+      useCase:
+        typeof item.useCase === 'string' ? stripHtml(item.useCase).slice(0, 200) : '',
+      positionX: typeof item.positionX === 'number' ? item.positionX : 0,
+      positionY: typeof item.positionY === 'number' ? item.positionY : 0,
+    })
+  }
+  return { title, description, isPublic, nodes }
+}

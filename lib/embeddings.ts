@@ -32,7 +32,7 @@ export async function embed(text: string, task: 'query' | 'document' = 'document
         : TaskType.RETRIEVAL_DOCUMENT,
     outputDimensionality: EMBEDDING_DIMENSIONS,
   }
-  const result = await model.embedContent(request as Parameters<typeof model.embedContent>[0])
+  const result = await model.embedContent(request as unknown as Parameters<typeof model.embedContent>[0])
   const v = result.embedding.values
   if (!Array.isArray(v) || v.length !== EMBEDDING_DIMENSIONS) {
     throw new Error(`embed: expected ${EMBEDDING_DIMENSIONS} dims, got ${v?.length ?? 0}`)

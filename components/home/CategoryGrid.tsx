@@ -17,7 +17,7 @@ export async function CategoryGrid() {
         {categories.map((c) => (
           <Link
             key={c.id}
-            href={`/search?category=${c.slug}`}
+            href={`/browse/${c.slug}`}
             className="group flex items-center gap-3 rounded-lg border border-border bg-surface p-4 transition-colors duration-base ease-enter hover:border-accent hover:bg-surface-2"
           >
             <span className="flex h-10 w-10 items-center justify-center rounded-md bg-surface-2 text-accent">

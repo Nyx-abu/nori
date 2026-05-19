@@ -29,6 +29,7 @@ export type ToolResult = {
   tagline: string
   description: string
   website: string
+  domain: string | null
   pricing: PricingType
   isOpenSource: boolean
   isPrivacyFocused: boolean
@@ -37,14 +38,18 @@ export type ToolResult = {
   category: CategorySummary
   tags: TagSummary[]
   score?: number
+  source?: 'db' | 'gemini'
+  whyRelevant?: string
 }
 
 export type SearchRequest = {
   query: string
   filters?: {
     category?: string
-    pricing?: PricingType
+    pricing?: PricingType | PricingType[]
+    platforms?: string[]
     privacy?: boolean
+    openSourceOnly?: boolean
   }
 }
 

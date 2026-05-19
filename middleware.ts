@@ -1,37 +1,57 @@
-// Phase 1 decision: Clerk middleware handles auth on all routes; rate limiting is layered before Clerk's protect so abusive callers don't even hit auth.
+// P2 decision: kept the existing rate-limit buckets but split route matching into public/protected. Workflow mutations + profile require auth; everything else stays public.
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 
+// NOTE: Clerk uses path-to-regexp v6 which doesn't support negative lookaheads.
+// Protected routes are checked first, so listing /workflows/(.*) as public is safe —
+// /workflows/new and /workflows/edit/* still match isProtectedRoute and require auth.
 const isPublicRoute = createRouteMatcher([
   '/',
   '/search(.*)',
+  '/browse(.*)',
   '/tools(.*)',
-  '/api/search(.*)',
-  '/api/tools(.*)',
+  '/workflows',
+  '/workflows/(.*)',
   '/sign-in(.*)',
   '/sign-up(.*)',
+  '/api/search(.*)',
+  '/api/tools(.*)',
+  '/api/workflows/public(.*)',
 ])
 
-// in-memory sliding window — resets on cold start (acceptable for MVP per spec)
+const isProtectedRoute = createRouteMatcher([
+  '/workflows/new',
+  '/workflows/edit/(.*)',
+  '/profile(.*)',
+  '/api/workflows/create(.*)',
+  '/api/workflows/delete(.*)',
+  '/api/workflows/update(.*)',
+  '/api/workflows/mine(.*)',
+])
+
+// in-memory sliding window — resets on cold start (acceptable for MVP)
 type Bucket = { hits: number[] }
 const buckets = new Map<string, Bucket>()
 const WINDOW_MS = 60_000
 
 function rateLimitKey(ip: string, path: string) {
-  // /api/search has its own bucket; everything else shares one
-  return path.startsWith('/api/search') ? `${ip}:search` : `${ip}:other`
+  if (path.startsWith('/api/search')) return `${ip}:search`
+  if (path.startsWith('/api/workflows/create')) return `${ip}:wf-create`
+  return `${ip}:other`
 }
 
 function limitFor(path: string) {
-  return path.startsWith('/api/search') ? 20 : 60
+  if (path.startsWith('/api/search')) return { count: 20, windowMs: 60_000 }
+  if (path.startsWith('/api/workflows/create')) return { count: 10, windowMs: 60 * 60_000 } // 10/hr
+  return { count: 60, windowMs: 60_000 }
 }
 
 function isRateLimited(ip: string, path: string): boolean {
   const key = rateLimitKey(ip, path)
   const now = Date.now()
-  const limit = limitFor(path)
+  const { count: limit, windowMs } = limitFor(path)
   const bucket = buckets.get(key) ?? { hits: [] }
-  bucket.hits = bucket.hits.filter((t) => now - t < WINDOW_MS)
+  bucket.hits = bucket.hits.filter((t) => now - t < windowMs)
   if (bucket.hits.length >= limit) {
     buckets.set(key, bucket)
     return true
@@ -57,7 +77,9 @@ export default clerkMiddleware((auth, req) => {
     }
   }
 
-  if (!isPublicRoute(req)) {
+  if (isProtectedRoute(req)) {
+    auth().protect()
+  } else if (!isPublicRoute(req)) {
     auth().protect()
   }
 

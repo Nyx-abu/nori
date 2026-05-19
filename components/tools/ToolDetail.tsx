@@ -4,7 +4,7 @@
 import { useEffect } from 'react'
 import { usePostHog } from 'posthog-js/react'
 import { motion } from 'framer-motion'
-import { ToolAvatar } from './ToolAvatar'
+import { ToolLogo } from '../ui/ToolLogo'
 import { Badge } from '../ui/Badge'
 import type { ToolResult } from '@/lib/types'
 
@@ -41,7 +41,7 @@ export function ToolDetail({ tool }: { tool: ToolResult }) {
       className="mx-auto max-w-3xl px-4 py-12 sm:px-6"
     >
       <header className="flex items-start gap-4">
-        <ToolAvatar name={tool.name} size={64} />
+        <ToolLogo name={tool.name} domain={tool.domain} size={64} framed />
         <div className="flex-1">
           <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
             {tool.name}

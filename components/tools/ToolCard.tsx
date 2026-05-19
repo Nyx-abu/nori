@@ -1,6 +1,6 @@
 // Phase 4 decision: ToolCard is a server component — pure markup, no state. The hover/focus effects come from CSS classes, not JS handlers.
 import Link from 'next/link'
-import { ToolAvatar } from './ToolAvatar'
+import { ToolLogo } from '../ui/ToolLogo'
 import { Badge } from '../ui/Badge'
 import { cn } from '../ui/cn'
 import type { ToolResult } from '@/lib/types'
@@ -34,7 +34,7 @@ export function ToolCard({ tool, className, compact = false }: Props) {
       )}
     >
       <div className="flex items-start gap-3">
-        <ToolAvatar name={tool.name} size={compact ? 36 : 44} />
+        <ToolLogo name={tool.name} domain={tool.domain} size={compact ? 36 : 44} framed />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <h3 className="truncate text-base font-semibold text-text-primary">

@@ -22,6 +22,8 @@ model AiTool {
   pricing          PricingType
   isOpenSource     Boolean        @default(false)
   isPrivacyFocused Boolean        @default(false)
+  // True when the row was auto-inserted from a Gemini live-discovery response, false when seeded or hand-curated.
+  isAutoDiscovered Boolean        @default(false)
   platforms        String[]
   trustScore       Float          @default(0)
   createdAt        DateTime       @default(now())
@@ -62,4 +64,37 @@ enum PricingType {
   FREEMIUM
   PAID
   OPEN_SOURCE
+}
+
+// Expansion P1 decision: Workflows are user-authored tool chains. Nodes carry their own toolDomain so the chain renders even when a node points to a Gemini-discovered tool not in our DB. Cascade delete on workflowId.
+model Workflow {
+  id          String         @id @default(cuid())
+  title       String
+  description String?
+  isPublic    Boolean        @default(false)
+  authorId    String
+  authorName  String
+  authorImage String?
+  nodes       WorkflowNode[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([authorId])
+  @@index([isPublic])
+  @@index([createdAt])
+}
+
+model WorkflowNode {
+  id         String   @id @default(cuid())
+  workflowId String
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  order      Int
+  toolName   String
+  toolSlug   String?
+  toolDomain String?
+  useCase    String
+  positionX  Float    @default(0)
+  positionY  Float    @default(0)
+
+  @@index([workflowId])
 }

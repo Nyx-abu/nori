@@ -1,4 +1,7 @@
+'use client'
+
 import Link from 'next/link'
+import { SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
 
 export function Header() {
   return (
@@ -18,11 +21,36 @@ export function Header() {
             Search
           </Link>
           <Link
-            href="/tools"
+            href="/browse"
             className="rounded-xl px-4 py-2 text-text-primary hover:bg-accent-pink hover:shadow-[2px_2px_0px_#1A1A1A] hover:border-2 hover:border-border border-2 border-transparent transition-all duration-base ease-enter"
           >
             Browse
           </Link>
+          <Link
+            href="/workflows"
+            className="rounded-xl px-4 py-2 text-text-primary hover:bg-accent-glow hover:shadow-[2px_2px_0px_#1A1A1A] hover:border-2 hover:border-border border-2 border-transparent transition-all duration-base ease-enter"
+          >
+            Workflows
+          </Link>
+          <SignedIn>
+            <Link
+              href="/profile"
+              className="rounded-xl px-4 py-2 text-text-primary hover:bg-surface-2 hover:shadow-[2px_2px_0px_#1A1A1A] hover:border-2 hover:border-border border-2 border-transparent transition-all duration-base ease-enter"
+            >
+              Profile
+            </Link>
+            <div className="ml-2">
+              <UserButton afterSignOutUrl="/" />
+            </div>
+          </SignedIn>
+          <SignedOut>
+            <Link
+              href="/sign-in"
+              className="ml-1 rounded-pill border-2 border-border bg-accent px-5 py-2 text-surface shadow-[2px_2px_0px_#1A1A1A] transition-all duration-base ease-enter hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_#1A1A1A] active:translate-y-0 active:shadow-none"
+            >
+              Sign in
+            </Link>
+          </SignedOut>
         </nav>
       </div>
     </header>
