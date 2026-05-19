@@ -56,27 +56,40 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6">
-      <div className="flex flex-wrap items-center gap-4 rounded-xl border-2 border-border bg-surface p-6 shadow-[6px_6px_0px_#1A1A1A]">
-        {user.imageUrl ? (
-          <img
-            src={user.imageUrl}
-            alt={name}
-            width={72}
-            height={72}
-            className="rounded-pill border-2 border-border shadow-[3px_3px_0px_#1A1A1A]"
-          />
-        ) : (
-          <div className="flex h-[72px] w-[72px] items-center justify-center rounded-pill border-2 border-border bg-accent-glow text-2xl font-extrabold text-text-primary shadow-[3px_3px_0px_#1A1A1A]">
-            {(name[0] ?? '?').toUpperCase()}
+      {/* Mobile pass: stack vertically so the username has the full width — the
+          previous flex-wrap layout kept the "+ New workflow" button on the same
+          row as the name and collapsed long names character-by-character.
+          Avatar shrinks to 56px on mobile to leave even more room for the name.
+          Desktop layout is unchanged (avatar + name + button on one row). */}
+      <div className="flex flex-col gap-4 rounded-xl border-2 border-border bg-surface p-5 shadow-[6px_6px_0px_#1A1A1A] sm:flex-row sm:items-center sm:p-6">
+        <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+          {user.imageUrl ? (
+            <img
+              src={user.imageUrl}
+              alt={name}
+              width={72}
+              height={72}
+              className="h-14 w-14 shrink-0 rounded-pill border-2 border-border object-cover shadow-[3px_3px_0px_#1A1A1A] sm:h-[72px] sm:w-[72px]"
+            />
+          ) : (
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-pill border-2 border-border bg-accent-glow text-xl font-extrabold text-text-primary shadow-[3px_3px_0px_#1A1A1A] sm:h-[72px] sm:w-[72px] sm:text-2xl">
+              {(name[0] ?? '?').toUpperCase()}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <h1 className="break-words text-xl font-extrabold tracking-tight text-text-primary sm:text-3xl">
+              {name}
+            </h1>
+            {email && (
+              <p className="mt-1 break-all text-xs font-bold text-text-secondary sm:text-sm">
+                {email}
+              </p>
+            )}
           </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <h1 className="text-3xl font-extrabold tracking-tight text-text-primary">{name}</h1>
-          {email && <p className="mt-1 text-sm font-bold text-text-secondary">{email}</p>}
         </div>
         <Link
           href="/workflows/new"
-          className="inline-flex h-11 items-center rounded-pill border-2 border-border bg-accent px-5 text-sm font-extrabold text-surface shadow-[3px_3px_0px_#1A1A1A] transition-all duration-base ease-enter hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_#1A1A1A]"
+          className="inline-flex h-11 w-full items-center justify-center rounded-pill border-2 border-border bg-accent px-5 text-sm font-extrabold text-surface shadow-[3px_3px_0px_#1A1A1A] transition-all duration-base ease-enter hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_#1A1A1A] sm:w-auto"
         >
           + New workflow
         </Link>

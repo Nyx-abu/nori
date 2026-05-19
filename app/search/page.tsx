@@ -40,11 +40,11 @@ export default async function SearchPage({ searchParams }: Props) {
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-extrabold tracking-tight text-text-primary">
+        <h1 className="text-2xl font-extrabold tracking-tight text-text-primary sm:text-3xl">
           {initialQuery ? (
             <>
               results for{' '}
-              <span className="ml-1 inline-block rounded-md border-2 border-border bg-accent-glow px-3 py-1 rotate-[-1deg] shadow-[3px_3px_0px_#1A1A1A]">
+              <span className="ml-1 inline-block max-w-full break-words rounded-md border-2 border-border bg-accent-glow px-3 py-1 rotate-[-1deg] shadow-[3px_3px_0px_#1A1A1A]">
                 {initialQuery}
               </span>
             </>
@@ -52,7 +52,7 @@ export default async function SearchPage({ searchParams }: Props) {
             'search'
           )}
         </h1>
-        <p className="mt-2 text-base font-bold text-text-secondary">
+        <p className="mt-2 text-sm font-bold text-text-secondary sm:text-base">
           Semantic match across the library + live AI discovery.
         </p>
       </div>

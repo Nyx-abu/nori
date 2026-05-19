@@ -50,10 +50,10 @@ export default async function BrowseCategoryPage({ params }: Props) {
             <Icon path={category.icon} size={28} strokeWidth={2} />
           </span>
           <div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-text-primary sm:text-5xl">
+            <h1 className="text-3xl font-extrabold tracking-tight text-text-primary sm:text-4xl md:text-5xl">
               {category.name}
             </h1>
-            <p className="mt-2 text-lg font-bold text-text-secondary">
+            <p className="mt-2 text-base font-bold text-text-secondary sm:text-lg">
               {shaped.length} tool{shaped.length === 1 ? '' : 's'} in this category
             </p>
           </div>

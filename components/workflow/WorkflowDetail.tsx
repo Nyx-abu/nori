@@ -54,7 +54,7 @@ export function WorkflowDetail({
             {new Date(workflow.createdAt).toLocaleDateString()}
           </span>
         </div>
-        <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-text-primary">
+        <h1 className="mt-3 break-words text-2xl font-extrabold tracking-tight text-text-primary sm:text-3xl">
           {workflow.title}
         </h1>
         {workflow.description && (

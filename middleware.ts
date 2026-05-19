@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 // /workflows/new and /workflows/edit/* still match isProtectedRoute and require auth.
 const isPublicRoute = createRouteMatcher([
   '/',
+  '/about',
   '/search(.*)',
   '/browse(.*)',
   '/tools(.*)',

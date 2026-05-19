@@ -274,7 +274,8 @@ export function WorkflowCanvas({
           onClick={() => setDrawerOpen(true)}
           className="rounded-pill border-2 border-border bg-accent-glow px-4 py-2 text-sm font-extrabold text-text-primary shadow-[3px_3px_0px_#1A1A1A] transition-all duration-base ease-enter hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_#1A1A1A]"
         >
-          + Add tool
+          <span className="sm:hidden">+ Add</span>
+          <span className="hidden sm:inline">+ Add tool</span>
         </button>
         <button
           type="button"
@@ -293,7 +294,8 @@ export function WorkflowCanvas({
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Short description (optional)"
           maxLength={500}
-          className="w-full bg-transparent text-sm font-bold text-text-primary placeholder:text-text-muted focus:outline-none"
+          // text-base (16px) avoids iOS focus-zoom on phones.
+          className="w-full bg-transparent text-base font-bold text-text-primary placeholder:text-text-muted focus:outline-none"
         />
       </div>
 

@@ -40,13 +40,13 @@ export function ToolDetail({ tool }: { tool: ToolResult }) {
       transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       className="mx-auto max-w-3xl px-4 py-12 sm:px-6"
     >
-      <header className="flex items-start gap-4">
-        <ToolLogo name={tool.name} domain={tool.domain} size={64} framed />
-        <div className="flex-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
+      <header className="flex items-start gap-3 sm:gap-4">
+        <ToolLogo name={tool.name} domain={tool.domain} size={56} framed />
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl font-semibold tracking-tight text-text-primary sm:text-2xl">
             {tool.name}
           </h1>
-          <p className="mt-1 text-base text-text-secondary">{tool.tagline}</p>
+          <p className="mt-1 text-sm text-text-secondary sm:text-base">{tool.tagline}</p>
         </div>
       </header>
 

@@ -54,10 +54,10 @@ export default async function WorkflowsPage({ searchParams }: Props) {
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-text-primary sm:text-5xl">
+            <h1 className="text-3xl font-extrabold tracking-tight text-text-primary sm:text-4xl md:text-5xl">
               Workflows
             </h1>
-            <p className="mt-2 text-lg font-bold text-text-secondary">
+            <p className="mt-2 text-base font-bold text-text-secondary sm:text-lg">
               Tool chains shared by the community. Steal, remix, learn.
             </p>
           </div>

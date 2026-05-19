@@ -42,13 +42,13 @@ export default async function BrowsePage({ searchParams }: Props) {
   return (
     <div className="min-h-screen bg-accent-blue pb-20">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-        <h1 className="text-4xl font-extrabold tracking-tight text-text-primary sm:text-5xl">
+        <h1 className="text-3xl font-extrabold tracking-tight text-text-primary sm:text-4xl md:text-5xl">
           Browse{' '}
           <span className="ml-2 inline-block rounded-md border-2 border-border bg-accent-glow px-3 py-1 rotate-[-2deg] shadow-[4px_4px_0px_#1A1A1A]">
             everything
           </span>
         </h1>
-        <p className="mt-3 text-lg font-bold text-text-secondary">
+        <p className="mt-3 text-base font-bold text-text-secondary sm:text-lg">
           Pick a category, or scroll the full catalog.
         </p>
 

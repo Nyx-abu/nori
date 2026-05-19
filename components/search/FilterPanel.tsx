@@ -169,7 +169,7 @@ export function FilterPanel({ categories }: Props) {
             <select
               value={categorySlug}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-md border-2 border-border bg-surface px-3 py-2 text-sm font-bold text-text-primary shadow-[2px_2px_0px_#1A1A1A] focus:outline-none"
+              className="w-full rounded-md border-2 border-border bg-surface px-3 py-2 text-base font-bold text-text-primary shadow-[2px_2px_0px_#1A1A1A] focus:outline-none sm:text-sm"
             >
               <option value="">All categories</option>
               {categories.map((c) => (

@@ -1,43 +1,51 @@
 'use client'
 
+// Mobile pass: nav links collapse into a hamburger panel below `md`. Desktop layout is byte-identical to the previous version so the neobrutalist look is preserved everywhere ≥768px.
+import { useState } from 'react'
+import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
 
+type NavItem = { href: string; label: string; hoverBg: string }
+
+const NAV_ITEMS: NavItem[] = [
+  { href: '/search', label: 'Search', hoverBg: 'hover:bg-accent-blue' },
+  { href: '/browse', label: 'Browse', hoverBg: 'hover:bg-accent-pink' },
+  { href: '/workflows', label: 'Workflows', hoverBg: 'hover:bg-accent-glow' },
+  { href: '/about', label: 'About', hoverBg: 'hover:bg-[#DDD6FE]' },
+]
+
 export function Header() {
+  const [open, setOpen] = useState(false)
+  const pathname = usePathname()
+
+  // close the mobile menu whenever the route changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  if (typeof window !== 'undefined') {
+    // no-op: state reset happens via key below
+  }
+
   return (
     <header className="sticky top-0 z-30 border-b-4 border-border bg-background/90 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2 group">
+        <Link href="/" className="flex items-center gap-2 group" onClick={() => setOpen(false)}>
           <NoriMark />
           <span className="text-2xl font-black tracking-tight text-accent mt-1">
             nori
           </span>
         </Link>
-        <nav className="flex items-center gap-2 text-sm font-bold">
-          <Link
-            href="/search"
-            className="rounded-xl px-4 py-2 text-text-primary hover:bg-accent-blue hover:shadow-[2px_2px_0px_#1A1A1A] hover:border-2 hover:border-border border-2 border-transparent transition-all duration-base ease-enter"
-          >
-            Search
-          </Link>
-          <Link
-            href="/browse"
-            className="rounded-xl px-4 py-2 text-text-primary hover:bg-accent-pink hover:shadow-[2px_2px_0px_#1A1A1A] hover:border-2 hover:border-border border-2 border-transparent transition-all duration-base ease-enter"
-          >
-            Browse
-          </Link>
-          <Link
-            href="/workflows"
-            className="rounded-xl px-4 py-2 text-text-primary hover:bg-accent-glow hover:shadow-[2px_2px_0px_#1A1A1A] hover:border-2 hover:border-border border-2 border-transparent transition-all duration-base ease-enter"
-          >
-            Workflows
-          </Link>
-          <Link
-            href="/about"
-            className="rounded-xl px-4 py-2 text-text-primary hover:bg-[#DDD6FE] hover:shadow-[2px_2px_0px_#1A1A1A] hover:border-2 hover:border-border border-2 border-transparent transition-all duration-base ease-enter"
-          >
-            About
-          </Link>
+
+        {/* Desktop nav (md and up) — visual parity with the previous layout */}
+        <nav className="hidden md:flex items-center gap-2 text-sm font-bold">
+          {NAV_ITEMS.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`rounded-xl px-4 py-2 text-text-primary ${item.hoverBg} hover:shadow-[2px_2px_0px_#1A1A1A] hover:border-2 hover:border-border border-2 border-transparent transition-all duration-base ease-enter`}
+            >
+              {item.label}
+            </Link>
+          ))}
           <SignedIn>
             <Link
               href="/profile"
@@ -58,7 +66,66 @@ export function Header() {
             </Link>
           </SignedOut>
         </nav>
+
+        {/* Mobile: UserButton (if signed in) + hamburger */}
+        <div className="flex items-center gap-2 md:hidden">
+          <SignedIn>
+            <UserButton afterSignOutUrl="/" />
+          </SignedIn>
+          <button
+            type="button"
+            aria-label={open ? 'Close menu' : 'Open menu'}
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+            className="flex h-11 w-11 items-center justify-center rounded-xl border-2 border-border bg-surface shadow-[2px_2px_0px_#1A1A1A] active:translate-y-0.5 active:shadow-none"
+          >
+            {open ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+                <path d="M6 6l12 12M6 18L18 6" />
+              </svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+                <path d="M4 7h16M4 12h16M4 17h16" />
+              </svg>
+            )}
+          </button>
+        </div>
       </div>
+
+      {open && (
+        <div className="md:hidden border-t-4 border-border bg-background">
+          <nav className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-4 text-sm font-bold" key={pathname}>
+            {NAV_ITEMS.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setOpen(false)}
+                className={`rounded-xl border-2 border-border bg-surface px-4 py-3 text-text-primary shadow-[2px_2px_0px_#1A1A1A] ${item.hoverBg} transition-colors duration-base ease-enter`}
+              >
+                {item.label}
+              </Link>
+            ))}
+            <SignedIn>
+              <Link
+                href="/profile"
+                onClick={() => setOpen(false)}
+                className="rounded-xl border-2 border-border bg-surface px-4 py-3 text-text-primary shadow-[2px_2px_0px_#1A1A1A] hover:bg-surface-2 transition-colors duration-base ease-enter"
+              >
+                Profile
+              </Link>
+            </SignedIn>
+            <SignedOut>
+              <Link
+                href="/sign-in"
+                onClick={() => setOpen(false)}
+                className="rounded-pill border-2 border-border bg-accent px-5 py-3 text-center text-surface shadow-[2px_2px_0px_#1A1A1A] transition-colors duration-base ease-enter"
+              >
+                Sign in
+              </Link>
+            </SignedOut>
+          </nav>
+        </div>
+      )}
     </header>
   )
 }

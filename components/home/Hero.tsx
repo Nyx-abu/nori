@@ -60,7 +60,9 @@ export function Hero() {
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ type: 'spring', stiffness: 120, damping: 14, delay: 0.1 }}
-            className="text-5xl font-extrabold tracking-tight text-text-primary sm:text-6xl md:text-7xl lg:text-[80px]"
+            // Mobile pass: mobile started at `text-5xl` (80px) which overflows on phones.
+            // Scaling now climbs cleanly: 40px → 56px → 68px → 80px.
+            className="text-[40px] font-extrabold tracking-tight text-text-primary sm:text-[56px] md:text-[68px] lg:text-[80px]"
             style={{ lineHeight: 1.05 }}
           >
             Find the perfect <br/>
