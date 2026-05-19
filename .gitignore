@@ -1,0 +1,18 @@
+# Phase 1: gitignore protects keys and build artifacts; .env is committed locally for the user's MVP only
+node_modules
+.next
+out
+build
+dist
+.env
+.env.local
+.env.production
+.env.development
+*.log
+.DS_Store
+.vercel
+.turbo
+next-env.d.ts
+.tsbuildinfo
+tsconfig.tsbuildinfo
+prisma/migrations/dev.db*

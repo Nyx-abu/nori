@@ -1,0 +1,65 @@
+// Phase 2 decision: ToolEmbedding is split into its own table so embedding regeneration doesn't dirty the AiTool row, and vector ops stay on a small focused relation.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [pgvector(map: "vector")]
+}
+
+model AiTool {
+  id               String         @id @default(cuid())
+  slug             String         @unique
+  name             String
+  tagline          String
+  description      String
+  website          String
+  pricing          PricingType
+  isOpenSource     Boolean        @default(false)
+  isPrivacyFocused Boolean        @default(false)
+  platforms        String[]
+  trustScore       Float          @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  categoryId       String
+  category         Category       @relation(fields: [categoryId], references: [id])
+  tags             Tag[]
+  embedding        ToolEmbedding?
+
+  @@index([categoryId])
+}
+
+model ToolEmbedding {
+  id     String                    @id @default(cuid())
+  toolId String                    @unique
+  tool   AiTool                    @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  vector Unsupported("vector(768)")
+}
+
+model Category {
+  id    String   @id @default(cuid())
+  slug  String   @unique
+  name  String
+  icon  String
+  tools AiTool[]
+}
+
+model Tag {
+  id    String   @id @default(cuid())
+  slug  String   @unique
+  name  String
+  tools AiTool[]
+}
+
+enum PricingType {
+  FREE
+  FREEMIUM
+  PAID
+  OPEN_SOURCE
+}
