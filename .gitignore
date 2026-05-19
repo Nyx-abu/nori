@@ -16,3 +16,7 @@ next-env.d.ts
 .tsbuildinfo
 tsconfig.tsbuildinfo
 prisma/migrations/dev.db*
+
+# AI/Agent local metadata
+AGENTS.md
+CHANGELOG.md
