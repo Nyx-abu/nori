@@ -19,6 +19,7 @@ import { ToolLogo } from '../ui/ToolLogo'
 import { Spinner } from '../ui/Spinner'
 import { cn } from '../ui/cn'
 import { rankToolsForQuery } from '@/lib/tool-ranking'
+import { usePostHog } from 'posthog-js/react'
 
 type WfNode = Node<ToolNodeData>
 
@@ -71,6 +72,7 @@ export function WorkflowCanvas({
   workflowId,
 }: Props) {
   const router = useRouter()
+  const posthog = usePostHog()
   const [title, setTitle] = React.useState(initialTitle)
   const [description, setDescription] = React.useState(initialDescription)
   const [isPublic, setIsPublic] = React.useState(initialIsPublic)
@@ -234,6 +236,12 @@ export function WorkflowCanvas({
       }
       const body = (await r.json()) as { workflowId?: string; ok?: boolean }
       const id = body.workflowId ?? workflowId
+      posthog?.capture(workflowId ? 'workflow_updated' : 'workflow_created', {
+        workflow_id: id,
+        node_count: chain.length,
+        is_public: isPublic,
+        tool_names: chain.map((n) => n.toolName),
+      })
       if (id) router.push(isPublic ? `/workflows/${id}` : '/profile')
       else router.push('/profile')
     } catch (e) {

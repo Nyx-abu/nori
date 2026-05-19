@@ -6,6 +6,7 @@ import { Suspense } from 'react'
 import { ClerkProvider } from '@clerk/nextjs'
 import { PostHogProvider } from './providers'
 import { PostHogPageView } from './_components/PostHogPageView'
+import { PostHogIdentify } from './_components/PostHogIdentify'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
 
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Suspense fallback={null}>
               <PostHogPageView />
             </Suspense>
+            <PostHogIdentify />
             <Header />
             <main>{children}</main>
             <Footer />

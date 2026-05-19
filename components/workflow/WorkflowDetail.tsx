@@ -1,9 +1,10 @@
 'use client'
 
 // P7 decision: detail view is read-only display of the sequential chain. Owners get Edit + Delete actions inline; delete confirms via window.confirm — no modal library.
-import { Fragment } from 'react'
+import { Fragment, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
+import { usePostHog } from 'posthog-js/react'
 import { ToolLogo } from '../ui/ToolLogo'
 
 type Node = {
@@ -35,12 +36,27 @@ export function WorkflowDetail({
   isOwner: boolean
 }) {
   const router = useRouter()
+  const posthog = usePostHog()
+
+  useEffect(() => {
+    if (!posthog) return
+    posthog.capture('workflow_viewed', {
+      workflow_id: workflow.id,
+      is_owner: isOwner,
+      is_public: workflow.isPublic,
+      node_count: workflow.nodes.length,
+    })
+  }, [posthog, workflow.id, isOwner, workflow.isPublic, workflow.nodes.length])
 
   const onDelete = async () => {
     if (!window.confirm('Delete this workflow? This cannot be undone.')) return
     const r = await fetch(`/api/workflows/${workflow.id}`, { method: 'DELETE' })
-    if (r.ok) router.push('/profile')
-    else window.alert('Failed to delete workflow.')
+    if (r.ok) {
+      posthog?.capture('workflow_deleted', { workflow_id: workflow.id })
+      router.push('/profile')
+    } else {
+      window.alert('Failed to delete workflow.')
+    }
   }
 
   return (

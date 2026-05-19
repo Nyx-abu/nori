@@ -64,6 +64,16 @@ export function SearchResults({ query, filters, sourceFilter = 'all', aiFirst = 
         posthog?.capture('search_performed', {
           query: trimmed,
           result_count: data.count,
+          db_count: data.dbCount,
+          ai_count: data.aiCount,
+          no_results: data.noResults,
+          ai_first: aiFirst,
+          source_filter: sourceFilter,
+          // Only stringify filters when they're non-empty so the dashboard doesn't see "{}" everywhere.
+          filters: filters && Object.keys(filters).some((k) => {
+            const v = (filters as Record<string, unknown>)[k]
+            return Array.isArray(v) ? v.length > 0 : Boolean(v)
+          }) ? filters : null,
         })
       })
       .catch((err: Error) => {
@@ -114,7 +124,7 @@ export function SearchResults({ query, filters, sourceFilter = 'all', aiFirst = 
     showDb && dbTools.length > 0 ? (
       <section key="db">
         <SectionHeader title="From the library" count={dbTools.length} tone="accent-blue" />
-        <ResultGrid tools={dbTools} />
+        <ResultGrid tools={dbTools} query={trimmed} />
       </section>
     ) : null
 
@@ -122,7 +132,7 @@ export function SearchResults({ query, filters, sourceFilter = 'all', aiFirst = 
     showAi && aiTools.length > 0 ? (
       <section key="ai">
         <SectionHeader title="AI-discovered" count={aiTools.length} tone="accent-glow" />
-        <AiGrid tools={aiTools} />
+        <AiGrid tools={aiTools} query={trimmed} />
       </section>
     ) : null
 
@@ -163,7 +173,8 @@ function SectionHeader({
   )
 }
 
-function ResultGrid({ tools }: { tools: ToolResult[] }) {
+function ResultGrid({ tools, query }: { tools: ToolResult[]; query: string }) {
+  const posthog = usePostHog()
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {tools.map((tool, i) => (
@@ -176,6 +187,16 @@ function ResultGrid({ tools }: { tools: ToolResult[] }) {
             delay: i * 0.04,
             ease: [0.16, 1, 0.3, 1],
           }}
+          onClick={() => {
+            // Bubbles up from the inner <Link>; fires before navigation.
+            posthog?.capture('search_result_clicked', {
+              tool_slug: tool.slug,
+              tool_name: tool.name,
+              source: 'db',
+              position: i,
+              query,
+            })
+          }}
         >
           <ToolCard tool={tool} />
         </motion.div>
@@ -184,7 +205,7 @@ function ResultGrid({ tools }: { tools: ToolResult[] }) {
   )
 }
 
-function AiGrid({ tools }: { tools: ToolResult[] }) {
+function AiGrid({ tools, query }: { tools: ToolResult[]; query: string }) {
   const posthog = usePostHog()
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -202,6 +223,14 @@ function AiGrid({ tools }: { tools: ToolResult[] }) {
             ease: [0.16, 1, 0.3, 1],
           }}
           onClick={() => {
+            // Two events: clicked-the-result (with position) AND website-clicked (downstream behavior).
+            posthog?.capture('search_result_clicked', {
+              tool_slug: tool.slug || tool.name.toLowerCase(),
+              tool_name: tool.name,
+              source: 'gemini',
+              position: i,
+              query,
+            })
             posthog?.capture('tool_website_clicked', {
               tool_slug: tool.name.toLowerCase(),
               tool_name: tool.name,
