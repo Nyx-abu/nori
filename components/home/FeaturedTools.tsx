@@ -23,12 +23,9 @@ export async function FeaturedTools() {
           browse all →
         </a>
       </div>
-      <div className="scroll-row -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 sm:px-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {shaped.map((tool) => (
-          <div
-            key={tool.id}
-            className="w-[280px] shrink-0 snap-start sm:w-[320px]"
-          >
+          <div key={tool.id} className="w-full">
             <ToolCard tool={tool} compact />
           </div>
         ))}

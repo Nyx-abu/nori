@@ -60,7 +60,7 @@ export function ToolCard({ tool, className, compact = false }: Props) {
           {pricingLabel[tool.pricing]}
         </Badge>
         {tool.isPrivacyFocused && <Badge tone="success">Private</Badge>}
-        {tool.isOpenSource && <Badge tone="neutral">Open source</Badge>}
+        {tool.isOpenSource && tool.pricing !== 'OPEN_SOURCE' && <Badge tone="neutral">Open source</Badge>}
       </div>
     </Link>
   )

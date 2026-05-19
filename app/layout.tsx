@@ -8,7 +8,6 @@ import { PostHogProvider } from './providers'
 import { PostHogPageView } from './_components/PostHogPageView'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
-import Image from 'next/image'
 
 const outfit = Outfit({
   subsets: ['latin'],
@@ -32,17 +31,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <ClerkProvider>
       <html lang="en" className={outfit.variable}>
         <body className="relative min-h-screen bg-background font-sans text-text-primary antialiased overflow-x-hidden">
-          {/* Static Decorative Corner Elements (Non-obstructive, fixed) */}
-          <div className="pointer-events-none fixed -left-4 -top-4 z-[-10] hidden xl:block">
-            <Image src="/corner-art-1.png" alt="Decorative AI Element" width={160} height={160} className="drop-shadow-[4px_4px_0px_rgba(26,26,26,0.15)] opacity-90" />
-          </div>
-          <div className="pointer-events-none fixed -bottom-4 -left-4 z-[-10] hidden xl:block">
-            <Image src="/corner-art-2.png" alt="Decorative Data Node" width={160} height={160} className="drop-shadow-[4px_4px_0px_rgba(26,26,26,0.15)] opacity-90" />
-          </div>
-          <div className="pointer-events-none fixed -right-4 top-32 z-[-10] hidden 2xl:block">
-            <Image src="/corner-art-3.png" alt="Decorative Terminal" width={140} height={140} className="drop-shadow-[4px_4px_0px_rgba(26,26,26,0.15)] opacity-90" />
-          </div>
-
           <PostHogProvider>
             <Suspense fallback={null}>
               <PostHogPageView />

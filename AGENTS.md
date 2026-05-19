@@ -181,8 +181,8 @@ easing:       cubic-bezier(0.175, 0.885, 0.32, 1.275) (Bouncy spring)
 ```
 
 **Design Principle:** Bold, thick dark borders around elements, bright flat colors, isometric illustrations, and highly springy Framer Motion animations.
-
-**Minimum touch target: 44px.** Components honor this via `min-w-[44px]` / `min-h-[44px]`.
+- **Layouts:** Use distinct, colorful sections (using `bg-accent-pink`, `bg-accent-glow`, etc.) separated by a custom `WaveDivider` SVG to create a playful, dynamic flow. Avoid generic flat scroll rows; prefer structured vertical grids (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4`) to prevent UI cutoff.
+- **Minimum touch target: 44px.** Components honor this via `min-w-[44px]` / `min-h-[44px]`.
 
 ---
 

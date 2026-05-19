@@ -11,7 +11,8 @@ export default async function ToolsIndex() {
   })
   const shaped = tools.map((t) => shapeTool(t))
   return (
-    <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+    <div className="min-h-screen bg-accent-blue pb-20">
+      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
       <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
         all tools
       </h1>
@@ -20,6 +21,7 @@ export default async function ToolsIndex() {
       </p>
       <div className="mt-8">
         <ToolGrid tools={shaped} />
+      </div>
       </div>
     </div>
   )

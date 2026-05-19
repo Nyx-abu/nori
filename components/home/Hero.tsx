@@ -16,7 +16,7 @@ export function Hero() {
   const router = useRouter()
 
   return (
-    <section className="relative flex min-h-[100svh] flex-col items-center justify-center overflow-hidden bg-background px-4 py-20 font-sans">
+    <section className="relative flex min-h-[100svh] flex-col items-center justify-center overflow-hidden px-4 py-20 font-sans">
       {/* Playful background blobs */}
       <motion.div
         className="absolute left-0 top-0 h-[600px] w-[600px] rounded-full bg-accent-pink/20 blur-3xl"
@@ -114,14 +114,16 @@ export function Hero() {
             animate={{ y: [-20, 20, -20] }}
             transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
           >
-            <Image
-              src="/hero-art.png"
-              alt="Isometric colorful robot"
-              width={600}
-              height={600}
-              className="drop-shadow-[15px_15px_0px_rgba(26,26,26,0.15)]"
-              priority
-            />
+            <div className="rotate-[4deg] rounded-[40px] border-4 border-border bg-surface p-6 shadow-[12px_12px_0px_#1A1A1A]">
+              <Image
+                src="/hero-art.png"
+                alt="Isometric colorful robot"
+                width={600}
+                height={600}
+                className="drop-shadow-[15px_15px_0px_rgba(26,26,26,0.15)]"
+                priority
+              />
+            </div>
           </motion.div>
         </motion.div>
       </div>

@@ -56,7 +56,7 @@ export function ToolDetail({ tool }: { tool: ToolResult }) {
           {pricingLabel[tool.pricing]}
         </Badge>
         {tool.isPrivacyFocused && <Badge tone="success">Privacy-focused</Badge>}
-        {tool.isOpenSource && <Badge tone="neutral">Open source</Badge>}
+        {tool.isOpenSource && tool.pricing !== 'OPEN_SOURCE' && <Badge tone="neutral">Open source</Badge>}
         {tool.tags.map((t) => (
           <Badge key={t.id} tone="neutral">
             {t.name}
