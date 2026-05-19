@@ -21,6 +21,8 @@ All notable changes to this project will be documented in this file.
   - Fixed UI cutoff and obstruction issues by migrating the `FeaturedTools` container from a horizontal scrolling row to a structured, fully-responsive vertical CSS grid (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4`).
 - **Browse Page Styling:**
   - Applied a lovely full-screen `bg-accent-blue` theme to the `/tools` browse page to maintain the vibrant aesthetic across the site.
+- **Bug Fixes:**
+  - Fixed an issue where the "Open source" badge was appearing twice on tool cards that had both `pricing="OPEN_SOURCE"` and `isOpenSource=true`.
 
 - **Total Aesthetic Pivot (Pop-Art Isometric):**
   - Updated `AGENTS.md` and `tailwind.config.ts` to replace the dark minimal theme with a vibrant, playful, cream-based palette (`#FDFBF7`, `#2A4B3C`, pinks, and blues).
