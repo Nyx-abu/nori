@@ -22,6 +22,7 @@ All notable changes to this project will be documented in this file.
 - **Browse Page Styling:**
   - Applied a lovely full-screen `bg-accent-blue` theme to the `/tools` browse page to maintain the vibrant aesthetic across the site.
 - **Bug Fixes:**
+  - Fixed an issue where the animated placeholder text in the `SearchBar` would wrap onto multiple lines on mobile screens. The text now properly truncates with an ellipsis.
   - Fixed an issue where the "Open source" badge was appearing twice on tool cards that had both `pricing="OPEN_SOURCE"` and `isOpenSource=true`.
 
 - **Total Aesthetic Pivot (Pop-Art Isometric):**

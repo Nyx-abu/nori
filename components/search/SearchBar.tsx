@@ -93,7 +93,7 @@ export function SearchBar({
         )}
       >
         <SearchIcon />
-        <div className="relative flex-1">
+        <div className="relative flex-1 min-w-0">
           <input
             type="text"
             value={value}
@@ -109,7 +109,7 @@ export function SearchBar({
           {!userTyping && (
             <div
               className={cn(
-                'pointer-events-none absolute inset-y-0 left-0 flex items-center font-bold',
+                'pointer-events-none absolute inset-y-0 left-0 right-0 flex items-center font-bold overflow-hidden',
                 textClass,
                 'text-text-muted',
               )}
@@ -125,6 +125,7 @@ export function SearchBar({
                     duration: 0.4,
                     ease: [0.16, 1, 0.3, 1],
                   }}
+                  className="block w-full truncate"
                 >
                   {EXAMPLES[placeholderIndex]}
                 </motion.span>
