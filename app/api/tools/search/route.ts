@@ -5,6 +5,7 @@ import { rankToolsForQuery, type RankableTool } from '@/lib/tool-ranking'
 import { discoverToolsWithGemini } from '@/lib/gemini-discovery'
 import { persistDiscoveredTools } from '@/lib/auto-library'
 import { getDomainFromUrl } from '@/lib/logo'
+import { cacheGet, cacheSet, stableHash } from '@/lib/redis'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -19,6 +20,14 @@ type DrawerResult = RankableTool & {
 
 export async function GET(req: NextRequest) {
   const q = (req.nextUrl.searchParams.get('q') ?? '').slice(0, 200).trim()
+
+  // Shorter TTL than /api/search because the drawer feeds the live editor — fresh
+  // library inserts (e.g. from a sibling search call) should show up within the hour.
+  const cacheKey = `drawer:v2:${stableHash(q.toLowerCase())}`
+  const cached = await cacheGet<{ results: DrawerResult[]; query: string }>(cacheKey)
+  if (cached) {
+    return NextResponse.json({ ...cached, cached: true })
+  }
 
   // 1. Library results
   const dbRows = await prisma.aiTool.findMany({
@@ -87,5 +96,7 @@ export async function GET(req: NextRequest) {
   // 4. Rank only when a query is present; empty query → library order (trustScore desc)
   const ranked = q.length > 0 ? rankToolsForQuery(combined, q) : combined
 
-  return NextResponse.json({ results: ranked.slice(0, 25), query: q })
+  const payload = { results: ranked.slice(0, 25), query: q }
+  void cacheSet(cacheKey, payload, 60 * 60)
+  return NextResponse.json(payload)
 }

@@ -22,7 +22,7 @@ export default async function BrowsePage({ searchParams }: Props) {
   const pageRaw = parseInt(pick(searchParams.page) || '1', 10)
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.min(pageRaw, 100) : 1
 
-  const [categories, total, tools] = await Promise.all([
+  const [categories, total, tools, topTags] = await Promise.all([
     prisma.category.findMany({
       include: { _count: { select: { tools: true } } },
       orderBy: { name: 'asc' },
@@ -34,7 +34,16 @@ export default async function BrowsePage({ searchParams }: Props) {
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
+    // Tag taxonomy expands as Gemini suggests new tags. Order by tool count so the
+    // useful ones rise; tags with no tools are hidden.
+    prisma.tag.findMany({
+      include: { _count: { select: { tools: true } } },
+      orderBy: [{ tools: { _count: 'desc' } }, { name: 'asc' }],
+      take: 24,
+    }),
   ])
+
+  const visibleTags = topTags.filter((t) => t._count.tools > 0)
 
   const shaped = tools.map((t) => shapeTool(t))
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -75,6 +84,26 @@ export default async function BrowsePage({ searchParams }: Props) {
             ))}
           </div>
         </section>
+
+        {visibleTags.length > 0 && (
+          <section className="mt-12">
+            <h2 className="mb-4 text-xl font-extrabold tracking-tight text-text-primary">
+              Browse by capability
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {visibleTags.map((t) => (
+                <Link
+                  key={t.id}
+                  href={`/browse/tag/${t.slug}`}
+                  className="inline-flex items-center gap-2 rounded-pill border-2 border-border bg-surface px-4 py-1.5 text-xs font-extrabold text-text-primary shadow-[2px_2px_0px_#1A1A1A] transition-all duration-base ease-enter hover:-translate-y-0.5 hover:bg-accent-glow hover:shadow-[3px_3px_0px_#1A1A1A]"
+                >
+                  <span>#{t.name}</span>
+                  <span className="text-2xs font-bold text-text-muted">{t._count.tools}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="mt-12">
           <div className="mb-4 flex items-end justify-between">

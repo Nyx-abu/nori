@@ -67,6 +67,9 @@ enum PricingType {
 }
 
 // Expansion P1 decision: Workflows are user-authored tool chains. Nodes carry their own toolDomain so the chain renders even when a node points to a Gemini-discovered tool not in our DB. Cascade delete on workflowId.
+// Edge expansion: WorkflowEdge stores arbitrary node-to-node connections so the canvas works like n8n
+// (any topology, not just a linear chain). WorkflowNode.order is still maintained for the legacy linear
+// renderer and as a stable presentation order when the graph has no custom edges.
 model Workflow {
   id          String         @id @default(cuid())
   title       String
@@ -76,6 +79,7 @@ model Workflow {
   authorName  String
   authorImage String?
   nodes       WorkflowNode[]
+  edges       WorkflowEdge[]
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
@@ -97,4 +101,18 @@ model WorkflowNode {
   positionY  Float    @default(0)
 
   @@index([workflowId])
+}
+
+model WorkflowEdge {
+  id           String   @id @default(cuid())
+  workflowId   String
+  workflow     Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  // sourceNodeId / targetNodeId reference WorkflowNode.id values. NOT FK-constrained because
+  // we recreate (deleteMany + createMany) nodes on save — the API layer validates that both
+  // IDs refer to nodes inside the same workflow before insert.
+  sourceNodeId String
+  targetNodeId String
+
+  @@index([workflowId])
+  @@unique([workflowId, sourceNodeId, targetNodeId])
 }

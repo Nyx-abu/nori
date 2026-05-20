@@ -72,6 +72,11 @@ export async function persistDiscoveredTool(tool: DiscoveredTool): Promise<strin
       ? `${tool.tagline} — ${tool.whyRelevant}`
       : tool.tagline
 
+    // Resolve tags: existing slugs are connected as-is, new slugs are upserted on the fly.
+    // Doing this before the tool create keeps the connect-by-id list simple, and concurrent
+    // discoveries with overlapping new tags converge thanks to the unique slug constraint.
+    const tagIds = await resolveTagIds(tool.tagSlugs, tool.newTagSlugs)
+
     const created = await prisma.aiTool.create({
       data: {
         slug,
@@ -86,6 +91,7 @@ export async function persistDiscoveredTool(tool: DiscoveredTool): Promise<strin
         platforms: tool.platforms,
         trustScore: 0.5,
         categoryId,
+        ...(tagIds.length ? { tags: { connect: tagIds.map((id) => ({ id })) } } : {}),
       },
       select: { id: true },
     })
@@ -125,4 +131,54 @@ function embeddingIdFor(toolId: string): string {
 export async function persistDiscoveredTools(tools: DiscoveredTool[]): Promise<void> {
   if (tools.length === 0) return
   await Promise.allSettled(tools.map((t) => persistDiscoveredTool(t)))
+}
+
+/**
+ * Look up existing tag ids by slug, and upsert any new slugs Gemini suggested.
+ * Returns the union of tag ids ready to be connect()'ed on AiTool.
+ *
+ * Failure modes are swallowed: a tag that can't be created (race, db error) just
+ * doesn't end up on the tool. The tool still persists.
+ */
+async function resolveTagIds(
+  existingSlugs: string[],
+  newSlugs: string[],
+): Promise<string[]> {
+  const slugsToFind = existingSlugs.filter((s) => typeof s === 'string' && s.length > 0)
+  const found = slugsToFind.length
+    ? await prisma.tag.findMany({
+        where: { slug: { in: slugsToFind } },
+        select: { id: true, slug: true },
+      })
+    : []
+  const ids = new Set(found.map((t) => t.id))
+
+  for (const slug of newSlugs) {
+    if (!slug) continue
+    const name = slug.replace(/-/g, ' ').replace(/\b\w/g, (s) => s.toUpperCase())
+    try {
+      // Prisma's `upsert` is not atomic in Postgres — it does a SELECT then INSERT, which
+      // races with sibling persistDiscoveredTool calls firing the same new tag concurrently.
+      // We catch the P2002 (unique constraint) and re-fetch the row that the other tx wrote.
+      const row = await prisma.tag.upsert({
+        where: { slug },
+        create: { slug, name },
+        update: {},
+        select: { id: true },
+      })
+      ids.add(row.id)
+    } catch (e) {
+      const code = (e as { code?: string })?.code
+      if (code === 'P2002') {
+        const existing = await prisma.tag.findUnique({ where: { slug }, select: { id: true } })
+        if (existing) {
+          ids.add(existing.id)
+          continue
+        }
+      }
+      const msg = e instanceof Error ? e.message : String(e)
+      console.warn('[auto-library] tag upsert failed for', slug, '—', msg)
+    }
+  }
+  return Array.from(ids)
 }

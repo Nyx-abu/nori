@@ -6,6 +6,7 @@ import { searchTools } from '@/lib/search'
 import { discoverToolsWithGemini } from '@/lib/gemini-discovery'
 import { persistDiscoveredTools } from '@/lib/auto-library'
 import { getDomainFromUrl } from '@/lib/logo'
+import { cacheGet, cacheSet, stableHash } from '@/lib/redis'
 import type { ApiError, ToolResult } from '@/lib/types'
 
 export const runtime = 'nodejs'
@@ -82,6 +83,22 @@ export async function POST(req: Request) {
 
   const openSourceOnly = filtersIn.openSourceOnly === true
 
+  // Cache key includes everything that changes the result: normalized query + all filters.
+  // Bump SEARCH_CACHE_VERSION when the response shape or ranking changes so stale entries are ignored.
+  const cacheKey = `search:v2:${stableHash({
+    q: query.toLowerCase(),
+    pricing: pricingArr.slice().sort(),
+    platforms: platformsArr.slice().sort(),
+    category: categorySlug ?? '',
+    privacy: privacyFocused,
+    oss: openSourceOnly,
+  })}`
+
+  const cached = await cacheGet<SearchResponse>(cacheKey)
+  if (cached) {
+    return NextResponse.json({ ...cached, cached: true })
+  }
+
   try {
     const dbPromise = searchTools({
       query,
@@ -136,16 +153,32 @@ export async function POST(req: Request) {
 
     const results = [...dbTools, ...aiTools]
 
-    return NextResponse.json({
+    const response: SearchResponse = {
       results,
       dbCount: dbTools.length,
       aiCount: aiTools.length,
       query,
       count: results.length,
       noResults: results.length === 0,
-    })
+    }
+
+    // 12h TTL: long enough that a user re-running the same prompt gets instant results
+    // and no second Gemini call. Auto-persisted Gemini tools are already in the DB by now,
+    // so even past the TTL the next search returns them via semantic search.
+    void cacheSet(cacheKey, response, 12 * 60 * 60)
+
+    return NextResponse.json(response)
   } catch (err) {
     console.error('search error', err)
     return bad('Search failed', 'SEARCH_FAILED', 500)
   }
+}
+
+type SearchResponse = {
+  results: ToolResult[]
+  dbCount: number
+  aiCount: number
+  query: string
+  count: number
+  noResults: boolean
 }

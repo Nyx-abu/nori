@@ -37,6 +37,9 @@ export function stripHtml(input: string): string {
 }
 
 export type WorkflowNodeInput = {
+  // Client-generated stable id used by edges to reference this node. Always opaque to the DB —
+  // it becomes the WorkflowNode.id directly so saved edges remain referentially valid across reloads.
+  id: string
   order: number
   toolName: string
   toolSlug: string | null
@@ -46,12 +49,23 @@ export type WorkflowNodeInput = {
   positionY: number
 }
 
+export type WorkflowEdgeInput = {
+  sourceNodeId: string
+  targetNodeId: string
+}
+
 export type SanitizedWorkflow = {
   title: string
   description: string
   isPublic: boolean
   nodes: WorkflowNodeInput[]
+  edges: WorkflowEdgeInput[]
 }
+
+// Accept any reasonable stable id format: cuid, uuid-with-or-without-dashes, our n_ prefix.
+// We don't care about exact format — only that it's a printable, length-bounded ASCII slug
+// that can safely round-trip through the DB primary key column.
+const NODE_ID_RE = /^[A-Za-z0-9_-]{6,80}$/
 
 export function sanitizeWorkflowInput(raw: unknown): SanitizedWorkflow | null {
   if (typeof raw !== 'object' || raw === null) return null
@@ -64,18 +78,29 @@ export function sanitizeWorkflowInput(raw: unknown): SanitizedWorkflow | null {
     typeof r.description === 'string' ? stripHtml(r.description).slice(0, 500) : ''
   const isPublic = r.isPublic === true
 
-  if (!Array.isArray(r.nodes) || r.nodes.length < 1 || r.nodes.length > 10) return null
+  if (!Array.isArray(r.nodes) || r.nodes.length < 1 || r.nodes.length > 25) return null
 
   const nodes: WorkflowNodeInput[] = []
+  const idsSeen = new Set<string>()
   for (let i = 0; i < r.nodes.length; i++) {
     const n = r.nodes[i]
     if (typeof n !== 'object' || n === null) return null
     const item = n as Record<string, unknown>
+
+    // Generate a stable id if the client didn't send one. Older WorkflowCanvas builds
+    // and any non-canvas caller (tests, scripts) won't carry ids — we mint a deterministic
+    // one keyed off the order so edges from the same payload could still wire up.
+    const rawId = typeof item.id === 'string' ? item.id : ''
+    const id = NODE_ID_RE.test(rawId) ? rawId : `n_legacy_${i}_${Date.now().toString(36)}`
+    if (idsSeen.has(id)) return null
+    idsSeen.add(id)
+
     const toolName =
       typeof item.toolName === 'string' && item.toolName.trim().length > 0
         ? stripHtml(item.toolName).slice(0, 100)
         : 'Unknown Tool'
     nodes.push({
+      id,
       order: i,
       toolName,
       toolSlug:
@@ -92,5 +117,27 @@ export function sanitizeWorkflowInput(raw: unknown): SanitizedWorkflow | null {
       positionY: typeof item.positionY === 'number' ? item.positionY : 0,
     })
   }
-  return { title, description, isPublic, nodes }
+
+  // Edges are optional. We validate that both endpoints refer to ids in the same payload,
+  // dedupe by (source, target), and cap the total count to bound write cost.
+  const edges: WorkflowEdgeInput[] = []
+  if (Array.isArray(r.edges)) {
+    const edgeKeys = new Set<string>()
+    for (const e of r.edges) {
+      if (typeof e !== 'object' || e === null) continue
+      const item = e as Record<string, unknown>
+      const source = typeof item.sourceNodeId === 'string' ? item.sourceNodeId : ''
+      const target = typeof item.targetNodeId === 'string' ? item.targetNodeId : ''
+      if (!idsSeen.has(source) || !idsSeen.has(target)) continue
+      if (source === target) continue
+      const key = `${source}__${target}`
+      if (edgeKeys.has(key)) continue
+      edgeKeys.add(key)
+      edges.push({ sourceNodeId: source, targetNodeId: target })
+      // Cap matches what a 25-node fully connected workflow would need; well above realistic usage.
+      if (edges.length >= 300) break
+    }
+  }
+
+  return { title, description, isPublic, nodes, edges }
 }

@@ -17,7 +17,10 @@ export default async function WorkflowDetailPage({ params }: Props) {
 
   const wf = await prisma.workflow.findUnique({
     where: { id: params.id },
-    include: { nodes: { orderBy: { order: 'asc' } } },
+    include: {
+      nodes: { orderBy: { order: 'asc' } },
+      edges: true,
+    },
   })
   if (!wf) notFound()
 
@@ -48,6 +51,12 @@ export default async function WorkflowDetailPage({ params }: Props) {
           toolSlug: n.toolSlug,
           toolDomain: n.toolDomain,
           useCase: n.useCase,
+          positionX: n.positionX,
+          positionY: n.positionY,
+        })),
+        edges: wf.edges.map((e) => ({
+          sourceNodeId: e.sourceNodeId,
+          targetNodeId: e.targetNodeId,
         })),
       }}
       isOwner={isOwner}

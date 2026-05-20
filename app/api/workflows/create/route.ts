@@ -50,7 +50,10 @@ export async function POST(req: Request) {
       })
       if (data.nodes.length > 0) {
         await tx.workflowNode.createMany({
+          // Explicit id from the client lets newly-created edges keep referring to the same
+          // node id across save → reload (the client tracks ids before they ever hit the DB).
           data: data.nodes.map((n) => ({
+            id: n.id,
             workflowId: wf.id,
             order: n.order,
             toolName: n.toolName,
@@ -60,6 +63,17 @@ export async function POST(req: Request) {
             positionX: n.positionX,
             positionY: n.positionY,
           })),
+        })
+      }
+      if (data.edges.length > 0) {
+        await tx.workflowEdge.createMany({
+          data: data.edges.map((e) => ({
+            workflowId: wf.id,
+            sourceNodeId: e.sourceNodeId,
+            targetNodeId: e.targetNodeId,
+          })),
+          // Tolerate concurrent retries on the same (workflowId, source, target) tuple.
+          skipDuplicates: true,
         })
       }
       return wf

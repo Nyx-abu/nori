@@ -22,7 +22,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
   const wf = await prisma.workflow.findUnique({
     where: { id: params.id },
-    include: { nodes: { orderBy: { order: 'asc' } } },
+    include: {
+      nodes: { orderBy: { order: 'asc' } },
+      edges: true,
+    },
   })
   if (!wf) return err('Workflow not found', 'NOT_FOUND', 404)
 
@@ -51,6 +54,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       useCase: n.useCase,
       positionX: n.positionX,
       positionY: n.positionY,
+    })),
+    edges: wf.edges.map((e) => ({
+      sourceNodeId: e.sourceNodeId,
+      targetNodeId: e.targetNodeId,
     })),
   })
 }
@@ -94,6 +101,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   try {
     await prisma.$transaction(async (tx) => {
+      // Order matters: edges first (FK-free but referentially scoped), then nodes.
+      // WorkflowEdge has cascade on workflowId so deleting nodes would already drop edges,
+      // but we do it explicitly to keep the operation order obvious and to avoid relying on
+      // a cascade that doesn't actually fire from node deletes (the FK is on workflowId).
+      await tx.workflowEdge.deleteMany({ where: { workflowId: params.id } })
       await tx.workflowNode.deleteMany({ where: { workflowId: params.id } })
       await tx.workflow.update({
         where: { id: params.id },
@@ -106,6 +118,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       if (data.nodes.length > 0) {
         await tx.workflowNode.createMany({
           data: data.nodes.map((n) => ({
+            id: n.id,
             workflowId: params.id,
             order: n.order,
             toolName: n.toolName,
@@ -115,6 +128,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
             positionX: n.positionX,
             positionY: n.positionY,
           })),
+        })
+      }
+      if (data.edges.length > 0) {
+        await tx.workflowEdge.createMany({
+          data: data.edges.map((e) => ({
+            workflowId: params.id,
+            sourceNodeId: e.sourceNodeId,
+            targetNodeId: e.targetNodeId,
+          })),
+          skipDuplicates: true,
         })
       }
     })

@@ -1,17 +1,29 @@
 'use client'
 
-// Fix-pass decision: nodeTypes is declared at module scope so React Flow never re-registers it across renders (the classic "node flickers / disappears" cause). Canvas wrapper now has an explicit pixel height — relying on flex-1 alone produced 0-height containers in some chromium variants. Drawer switched to /api/tools/search (library + Gemini + dedup + ranking).
+// Free-form canvas (n8n-style): nodes have stable ids, edges are first-class state, users drag
+// between handles to connect, select-then-Delete to remove, and the save payload carries both arrays.
+// Key invariants:
+//   - nodeTypes / edgeTypes are module-scope so React Flow never re-registers them (classic "blank canvas" bug).
+//   - Each node carries a stable client-generated id so edges can reference it across saves/reloads.
+//   - When a loaded workflow has no edges (legacy linear chain), we synthesize them from node order
+//     so existing workflows render correctly and migrate to the edge model on next save.
+//   - Mount gate keeps ReactFlow from running its ResizeObserver against Next.js's SSR placeholder.
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import ReactFlow, {
   Background,
   Controls,
+  MarkerType,
   ReactFlowProvider,
+  addEdge,
+  applyEdgeChanges,
+  applyNodeChanges,
+  type Connection,
   type Edge,
+  type EdgeChange,
   type Node,
   type NodeChange,
   type NodeProps,
-  applyNodeChanges,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 import { ToolNode, type ToolNodeData } from './ToolNode'
@@ -29,6 +41,12 @@ const nodeTypes = {
   tool: (props: NodeProps<ToolNodeData>) => (
     <ToolNode data={props.data} selected={props.selected} />
   ),
+}
+
+const defaultEdgeOptions = {
+  animated: true,
+  style: { stroke: '#1A1A1A', strokeWidth: 2 },
+  markerEnd: { type: MarkerType.ArrowClosed, color: '#1A1A1A', width: 18, height: 18 },
 }
 
 // Global header is 64px (h-16 in components/layout/Header.tsx); canvas fills the rest.
@@ -49,19 +67,38 @@ type DrawerTool = {
   slug?: string
 }
 
+type InitialNode = {
+  id?: string
+  toolName: string
+  toolSlug?: string | null
+  toolDomain?: string | null
+  useCase: string
+  positionX: number
+  positionY: number
+}
+
+type InitialEdge = {
+  sourceNodeId: string
+  targetNodeId: string
+}
+
 type Props = {
   initialTitle?: string
   initialDescription?: string
   initialIsPublic?: boolean
-  initialNodes?: Array<{
-    toolName: string
-    toolSlug?: string | null
-    toolDomain?: string | null
-    useCase: string
-    positionX: number
-    positionY: number
-  }>
+  initialNodes?: InitialNode[]
+  initialEdges?: InitialEdge[]
   workflowId?: string
+}
+
+// Generates a stable id for a freshly-added node. We accept the loaded DB id when present;
+// otherwise client-generated ids let edges reference nodes that haven't been persisted yet.
+function makeNodeId(): string {
+  // crypto.randomUUID is supported in modern browsers + Node 19+. Fallback is base36-time.
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return 'n_' + (crypto as Crypto).randomUUID().replace(/-/g, '')
+  }
+  return 'n_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10)
 }
 
 export function WorkflowCanvas({
@@ -69,6 +106,7 @@ export function WorkflowCanvas({
   initialDescription = '',
   initialIsPublic = false,
   initialNodes = [],
+  initialEdges = [],
   workflowId,
 }: Props) {
   const router = useRouter()
@@ -86,113 +124,166 @@ export function WorkflowCanvas({
     setMounted(true)
   }, [])
 
-  // logical chain — order in this array is the workflow order
-  const [chain, setChain] = React.useState<Array<{
+  // Tool payload kept alongside the React Flow node so updates flow through one place.
+  const [toolByNodeId, setToolByNodeId] = React.useState<Map<string, {
     toolName: string
     toolSlug: string | null
     toolDomain: string | null
     useCase: string
-    positionX: number
-    positionY: number
-  }>>(() =>
-    initialNodes.map((n, i) => ({
-      toolName: n.toolName,
-      toolSlug: n.toolSlug ?? null,
-      toolDomain: n.toolDomain ?? null,
-      useCase: n.useCase,
-      positionX: n.positionX || FIRST_NODE_POSITION.x,
-      positionY: n.positionY || FIRST_NODE_POSITION.y + i * NODE_SPACING_Y,
-    })),
-  )
+  }>>(() => {
+    const m = new Map<string, { toolName: string; toolSlug: string | null; toolDomain: string | null; useCase: string }>()
+    for (const n of initialNodes) {
+      const id = n.id ?? makeNodeId()
+      m.set(id, {
+        toolName: n.toolName,
+        toolSlug: n.toolSlug ?? null,
+        toolDomain: n.toolDomain ?? null,
+        useCase: n.useCase,
+      })
+    }
+    return m
+  })
 
-  const updateUseCase = (i: number, v: string) => {
-    setChain((c) => c.map((n, idx) => (idx === i ? { ...n, useCase: v } : n)))
-  }
-  const removeAt = (i: number) => {
-    setChain((c) => c.filter((_, idx) => idx !== i))
-  }
-  const moveLeft = (i: number) => {
-    setChain((c) => {
-      if (i <= 0) return c
-      const out = [...c]
-      const tmp = out[i - 1]!
-      out[i - 1] = out[i]!
-      out[i] = tmp
-      return out
-    })
-  }
-  const moveRight = (i: number) => {
-    setChain((c) => {
-      if (i >= c.length - 1) return c
-      const out = [...c]
-      const tmp = out[i + 1]!
-      out[i + 1] = out[i]!
-      out[i] = tmp
-      return out
-    })
-  }
-
-  const nodes: WfNode[] = React.useMemo(
-    () =>
-      chain.map((n, i) => ({
-        id: `n-${i}`,
+  const [nodes, setNodes] = React.useState<WfNode[]>(() =>
+    initialNodes.map((n, i) => {
+      const id = n.id ?? makeNodeId()
+      // Re-key Map entries when the caller didn't supply ids (covers the case
+      // where two initial-state initializers race and the Map keys diverge).
+      // Safe because the Map was just constructed above.
+      return {
+        id,
         type: 'tool',
-        position: { x: n.positionX, y: n.positionY },
-        data: {
-          toolName: n.toolName,
-          toolSlug: n.toolSlug,
-          toolDomain: n.toolDomain,
-          useCase: n.useCase,
-          editable: true,
-          onUseCaseChange: (v: string) => updateUseCase(i, v),
-          onRemove: () => removeAt(i),
-          onMoveLeft: () => moveLeft(i),
-          onMoveRight: () => moveRight(i),
-          canMoveLeft: i > 0,
-          canMoveRight: i < chain.length - 1,
+        position: {
+          x: n.positionX || FIRST_NODE_POSITION.x,
+          y: n.positionY || FIRST_NODE_POSITION.y + i * NODE_SPACING_Y,
         },
-      })),
-    [chain],
+        data: { toolName: n.toolName, toolSlug: n.toolSlug ?? null, toolDomain: n.toolDomain ?? null, useCase: n.useCase, editable: true },
+      }
+    }),
   )
 
-  // edges rebuild whenever the chain order changes
-  const edges: Edge[] = React.useMemo(
+  // Edges: if the loaded workflow has saved edges, use them. If not but there are >=2 nodes,
+  // synthesize a linear chain so legacy linear workflows still look correct — saving will then
+  // persist these edges as real records.
+  const [edges, setEdges] = React.useState<Edge[]>(() => {
+    if (initialEdges.length > 0) {
+      return initialEdges.map((e) => ({
+        id: `${e.sourceNodeId}__${e.targetNodeId}`,
+        source: e.sourceNodeId,
+        target: e.targetNodeId,
+        ...defaultEdgeOptions,
+      }))
+    }
+    if (initialNodes.length < 2) return []
+    const out: Edge[] = []
+    const ids = (Array.from(toolByNodeId.keys()))
+    // toolByNodeId is keyed by the same generated ids in the same order as initialNodes — safe.
+    for (let i = 0; i < ids.length - 1; i++) {
+      out.push({
+        id: `${ids[i]}__${ids[i + 1]}`,
+        source: ids[i] as string,
+        target: ids[i + 1] as string,
+        ...defaultEdgeOptions,
+      })
+    }
+    return out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  })
+
+  const updateUseCase = React.useCallback((id: string, v: string) => {
+    setToolByNodeId((prev) => {
+      const next = new Map(prev)
+      const existing = next.get(id)
+      if (!existing) return prev
+      next.set(id, { ...existing, useCase: v })
+      return next
+    })
+  }, [])
+
+  const removeNode = React.useCallback((id: string) => {
+    setNodes((ns) => ns.filter((n) => n.id !== id))
+    setEdges((es) => es.filter((e) => e.source !== id && e.target !== id))
+    setToolByNodeId((prev) => {
+      const next = new Map(prev)
+      next.delete(id)
+      return next
+    })
+  }, [])
+
+  // Recompute node data whenever the tool map or the bare node positions change so that
+  // tool fields, callbacks, and editable flag stay in sync without re-creating WfNode shells.
+  const enrichedNodes = React.useMemo<WfNode[]>(
     () =>
-      chain.slice(0, -1).map((_, i) => ({
-        id: `e-${i}-${i + 1}`,
-        source: `n-${i}`,
-        target: `n-${i + 1}`,
-        animated: true,
-        style: { stroke: '#1A1A1A', strokeWidth: 2 },
-      })),
-    [chain],
+      nodes.map((n) => {
+        const tool = toolByNodeId.get(n.id)
+        if (!tool) return n
+        return {
+          ...n,
+          data: {
+            toolName: tool.toolName,
+            toolSlug: tool.toolSlug,
+            toolDomain: tool.toolDomain,
+            useCase: tool.useCase,
+            editable: true,
+            onUseCaseChange: (v: string) => updateUseCase(n.id, v),
+            onRemove: () => removeNode(n.id),
+            // Move buttons removed — connections are user-drawn now, no implicit linear order.
+            canMoveLeft: false,
+            canMoveRight: false,
+          },
+        }
+      }),
+    [nodes, toolByNodeId, updateUseCase, removeNode],
   )
 
-  const onNodesChange = (changes: NodeChange[]) => {
-    const next = applyNodeChanges(changes, nodes) as WfNode[]
-    setChain((c) =>
-      c.map((n, i) => {
-        const m = next.find((x) => x.id === `n-${i}`)
-        if (!m) return n
-        return { ...n, positionX: m.position.x, positionY: m.position.y }
-      }),
-    )
-  }
+  const onNodesChange = React.useCallback((changes: NodeChange[]) => {
+    setNodes((ns) => applyNodeChanges(changes, ns) as WfNode[])
+  }, [])
+
+  const onEdgesChange = React.useCallback((changes: EdgeChange[]) => {
+    setEdges((es) => applyEdgeChanges(changes, es))
+  }, [])
+
+  const onConnect = React.useCallback((conn: Connection) => {
+    if (!conn.source || !conn.target) return
+    if (conn.source === conn.target) return
+    setEdges((es) => {
+      // Prevent duplicates: addEdge already does this via comparing source/target/handles, but
+      // we override the id so it's stable across reloads (used as the DB row identity).
+      const id = `${conn.source}__${conn.target}`
+      if (es.some((e) => e.id === id)) return es
+      return addEdge({ ...conn, id, ...defaultEdgeOptions }, es)
+    })
+  }, [])
 
   const addTool = (tool: DrawerTool) => {
-    setChain((c) => {
-      const lastY = c.length > 0 ? c[c.length - 1]!.positionY : FIRST_NODE_POSITION.y - NODE_SPACING_Y
-      return [
-        ...c,
-        {
+    const id = makeNodeId()
+    // place new nodes below the lowest existing one so they don't overlap
+    const lastY = nodes.length > 0 ? Math.max(...nodes.map((n) => n.position.y)) : FIRST_NODE_POSITION.y - NODE_SPACING_Y
+    setNodes((ns) => [
+      ...ns,
+      {
+        id,
+        type: 'tool',
+        position: { x: FIRST_NODE_POSITION.x, y: lastY + NODE_SPACING_Y },
+        data: {
           toolName: tool.name,
           toolSlug: tool.slug ?? null,
           toolDomain: tool.domain ?? null,
           useCase: '',
-          positionX: FIRST_NODE_POSITION.x,
-          positionY: lastY + NODE_SPACING_Y,
+          editable: true,
         },
-      ]
+      },
+    ])
+    setToolByNodeId((prev) => {
+      const next = new Map(prev)
+      next.set(id, {
+        toolName: tool.name,
+        toolSlug: tool.slug ?? null,
+        toolDomain: tool.domain ?? null,
+        useCase: '',
+      })
+      return next
     })
     setDrawerOpen(false)
   }
@@ -203,7 +294,7 @@ export function WorkflowCanvas({
       setError('Workflow needs a title.')
       return
     }
-    if (chain.length < 1) {
+    if (nodes.length < 1) {
       setError('Add at least one tool.')
       return
     }
@@ -213,15 +304,20 @@ export function WorkflowCanvas({
         title: title.trim(),
         description: description.trim(),
         isPublic,
-        nodes: chain.map((n, i) => ({
-          order: i,
-          toolName: n.toolName,
-          toolSlug: n.toolSlug,
-          toolDomain: n.toolDomain,
-          useCase: n.useCase,
-          positionX: n.positionX,
-          positionY: n.positionY,
-        })),
+        nodes: nodes.map((n, i) => {
+          const tool = toolByNodeId.get(n.id)
+          return {
+            id: n.id,
+            order: i,
+            toolName: tool?.toolName ?? 'Unknown Tool',
+            toolSlug: tool?.toolSlug ?? null,
+            toolDomain: tool?.toolDomain ?? null,
+            useCase: tool?.useCase ?? '',
+            positionX: n.position.x,
+            positionY: n.position.y,
+          }
+        }),
+        edges: edges.map((e) => ({ sourceNodeId: e.source, targetNodeId: e.target })),
       }
       const url = workflowId ? `/api/workflows/${workflowId}` : '/api/workflows/create'
       const method = workflowId ? 'PATCH' : 'POST'
@@ -238,9 +334,9 @@ export function WorkflowCanvas({
       const id = body.workflowId ?? workflowId
       posthog?.capture(workflowId ? 'workflow_updated' : 'workflow_created', {
         workflow_id: id,
-        node_count: chain.length,
+        node_count: nodes.length,
         is_public: isPublic,
-        tool_names: chain.map((n) => n.toolName),
+        tool_names: nodes.map((n) => toolByNodeId.get(n.id)?.toolName ?? 'Unknown'),
       })
       if (id) router.push(isPublic ? `/workflows/${id}` : '/profile')
       else router.push('/profile')
@@ -307,6 +403,10 @@ export function WorkflowCanvas({
         />
       </div>
 
+      <div className="border-b border-border/50 bg-surface-2 px-4 py-1.5 text-2xs font-bold text-text-muted sm:px-6">
+        Drag a node by its dark dot to connect. Click an edge then press Delete to remove it.
+      </div>
+
       {error && (
         <div className="border-b-2 border-border bg-accent-pink px-4 py-2 text-sm font-extrabold text-text-primary sm:px-6">
           {error}
@@ -317,15 +417,18 @@ export function WorkflowCanvas({
         {mounted ? (
           <ReactFlowProvider>
             <ReactFlow
-              nodes={nodes}
+              nodes={enrichedNodes}
               edges={edges}
               nodeTypes={nodeTypes}
               onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
               fitView
               fitViewOptions={{ padding: 0.3 }}
               minZoom={0.3}
               maxZoom={2}
-              defaultEdgeOptions={{ animated: true }}
+              defaultEdgeOptions={defaultEdgeOptions}
+              deleteKeyCode={['Backspace', 'Delete']}
               proOptions={{ hideAttribution: true }}
             >
               <Background variant={'dots' as never} gap={24} size={1.5} color="#EAE5D9" />
@@ -338,7 +441,7 @@ export function WorkflowCanvas({
           </div>
         )}
 
-        {mounted && chain.length === 0 && (
+        {mounted && nodes.length === 0 && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <div className="rounded-xl border-4 border-dashed border-border bg-surface px-8 py-6 text-center shadow-[6px_6px_0px_#1A1A1A]">
               <p className="text-lg font-extrabold text-text-primary">Empty canvas</p>
@@ -352,7 +455,7 @@ export function WorkflowCanvas({
 
       {drawerOpen && (
         <ToolPickerDrawer
-          excludeNames={chain.map((c) => c.toolName)}
+          excludeNames={Array.from(toolByNodeId.values()).map((t) => t.toolName)}
           onPick={addTool}
           onClose={() => setDrawerOpen(false)}
         />
