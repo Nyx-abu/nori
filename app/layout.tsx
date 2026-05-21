@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import { Outfit } from 'next/font/google'
 import { Suspense } from 'react'
 import { ClerkProvider } from '@clerk/nextjs'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import { PostHogProvider } from './providers'
 import { PostHogPageView } from './_components/PostHogPageView'
 import { PostHogIdentify } from './_components/PostHogIdentify'
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <main>{children}</main>
             <Footer />
           </PostHogProvider>
+          <SpeedInsights />
         </body>
       </html>
     </ClerkProvider>
