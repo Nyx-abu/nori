@@ -5,10 +5,10 @@ export default function NotFound() {
     <div className="min-h-screen bg-accent-pink pb-20">
       <div className="mx-auto max-w-3xl px-4 py-24 sm:px-6">
         <h2 className="text-3xl font-extrabold tracking-tight text-text-primary">
-          We don't have that category.
+          We don&apos;t have that category.
         </h2>
         <p className="mt-2 text-base font-bold text-text-secondary">
-          It may be misspelled, or we haven't added it yet.
+          It may be misspelled, or we haven&apos;t added it yet.
         </p>
         <Link
           href="/browse"

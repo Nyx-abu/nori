@@ -446,7 +446,7 @@ export function WorkflowCanvas({
             <div className="rounded-xl border-4 border-dashed border-border bg-surface px-8 py-6 text-center shadow-[6px_6px_0px_#1A1A1A]">
               <p className="text-lg font-extrabold text-text-primary">Empty canvas</p>
               <p className="mt-1 text-sm font-bold text-text-secondary">
-                Hit "+ Add tool" to start your workflow.
+                Hit &quot;+ Add tool&quot; to start your workflow.
               </p>
             </div>
           </div>

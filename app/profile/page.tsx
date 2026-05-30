@@ -115,7 +115,7 @@ export default function ProfilePage() {
           ) : workflows.length === 0 ? (
             <div className="rounded-xl border-4 border-dashed border-border bg-surface p-10 text-center shadow-[4px_4px_0px_#1A1A1A]">
               <p className="text-base font-extrabold text-text-primary">
-                You haven't created any workflows yet.
+                You haven&apos;t created any workflows yet.
               </p>
               <Link
                 href="/workflows/new"

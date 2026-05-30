@@ -5,7 +5,7 @@ export default function NotFound() {
     <div className="min-h-screen bg-accent-blue pb-20">
       <div className="mx-auto max-w-3xl px-4 py-24 sm:px-6">
         <h2 className="text-3xl font-extrabold tracking-tight text-text-primary">
-          We don't have that tag.
+          We don&apos;t have that tag.
         </h2>
         <p className="mt-2 text-base font-bold text-text-secondary">
           It may be misspelled, or no tool has been tagged with it yet.

@@ -5,7 +5,7 @@ export function NoResults({ query }: { query: string }) {
     <div className="mx-auto max-w-xl rounded-xl border-4 border-border bg-surface p-10 text-center shadow-[8px_8px_0px_#1A1A1A]">
       <p className="text-2xs font-extrabold uppercase tracking-widest text-text-muted">Empty handed</p>
       <h2 className="mt-2 text-2xl font-extrabold text-text-primary">
-        We couldn't find anything for that
+        We couldn&apos;t find anything for that
       </h2>
       <p className="mt-3 text-sm font-bold text-text-secondary">
         Nori searched its library and asked AI — no matching tools turned up for{' '}

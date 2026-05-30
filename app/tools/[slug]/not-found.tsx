@@ -4,7 +4,7 @@ export default function NotFound() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-24 sm:px-6">
       <h2 className="text-2xl font-semibold tracking-tight text-text-primary">
-        We don't have this tool yet.
+        We don&apos;t have this tool yet.
       </h2>
       <p className="mt-2 text-sm text-text-secondary">
         It may be misspelled, or not in our catalog.
