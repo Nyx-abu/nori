@@ -1,6 +1,10 @@
 'use client'
 
-// P4 decision: Two result groups (db / gemini) rendered separately so they can be filtered client-side and tagged visually. Gemini cards open the external website directly because no detail page exists for them.
+// Two parallel fetches: /api/search returns the DB section fast (multi-vector RRF + reranker), and
+// /api/search/discover returns Gemini live discoveries on its own clock. Each section paints as soon as
+// its endpoint resolves — DB usually under 500ms, AI 2-3s depending on Gemini load. PostHog event is
+// fired once after the DB call so analytics see search_performed with a result_count we know is final
+// for the library; aiCount is patched in later if/when discover resolves.
 import * as React from 'react'
 import { motion } from 'framer-motion'
 import { ToolCard } from '../tools/ToolCard'
@@ -11,13 +15,30 @@ import { NoResults } from './NoResults'
 import type { ToolResult } from '@/lib/types'
 import { usePostHog } from 'posthog-js/react'
 
-type SearchResponse = {
+type SearchMeta = {
+  path: 'full-rrf' | 'lexical-only' | 'empty'
+  hyde_expanded: boolean
+  reranker: 'jina' | 'fallback' | 'skipped'
+  eligible_count: number
+  candidate_count: number
+  rerank_filtered: number
+  rerank_score_top: number | null
+  rerank_score_median: number | null
+}
+
+type DbResponse = {
   results: ToolResult[]
   dbCount: number
-  aiCount: number
   query: string
   count: number
   noResults: boolean
+  meta: SearchMeta
+}
+
+type AiResponse = {
+  results: ToolResult[]
+  aiCount: number
+  query: string
 }
 
 type Props = {
@@ -27,26 +48,36 @@ type Props = {
   aiFirst?: boolean
 }
 
-type State =
+type DbState =
   | { kind: 'idle' }
   | { kind: 'loading' }
-  | { kind: 'ok'; data: SearchResponse }
+  | { kind: 'ok'; data: DbResponse }
+  | { kind: 'error'; message: string }
+
+type AiState =
+  | { kind: 'idle' }
+  | { kind: 'loading' }
+  | { kind: 'ok'; data: AiResponse }
   | { kind: 'error'; message: string }
 
 export function SearchResults({ query, filters, sourceFilter = 'all', aiFirst = false }: Props) {
-  const [state, setState] = React.useState<State>({ kind: 'idle' })
+  const [dbState, setDbState] = React.useState<DbState>({ kind: 'idle' })
+  const [aiState, setAiState] = React.useState<AiState>({ kind: 'idle' })
   const posthog = usePostHog()
   const trimmed = query.trim()
   const filtersKey = JSON.stringify(filters ?? {})
 
   React.useEffect(() => {
     if (!trimmed) {
-      setState({ kind: 'idle' })
+      setDbState({ kind: 'idle' })
+      setAiState({ kind: 'idle' })
       return
     }
     let cancelled = false
-    setState({ kind: 'loading' })
-    fetch('/api/search', {
+    setDbState({ kind: 'loading' })
+    setAiState({ kind: 'loading' })
+
+    const dbPromise = fetch('/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: trimmed, filters: filters ?? {} }),
@@ -56,30 +87,75 @@ export function SearchResults({ query, filters, sourceFilter = 'all', aiFirst = 
           const body = (await r.json().catch(() => ({}))) as { error?: string }
           throw new Error(body.error ?? `Request failed (${r.status})`)
         }
-        return (await r.json()) as SearchResponse
+        return (await r.json()) as DbResponse
       })
       .then((data) => {
-        if (cancelled) return
-        setState({ kind: 'ok', data })
-        posthog?.capture('search_performed', {
-          query: trimmed,
-          result_count: data.count,
-          db_count: data.dbCount,
-          ai_count: data.aiCount,
-          no_results: data.noResults,
-          ai_first: aiFirst,
-          source_filter: sourceFilter,
-          // Only stringify filters when they're non-empty so the dashboard doesn't see "{}" everywhere.
-          filters: filters && Object.keys(filters).some((k) => {
-            const v = (filters as Record<string, unknown>)[k]
-            return Array.isArray(v) ? v.length > 0 : Boolean(v)
-          }) ? filters : null,
-        })
+        if (cancelled) return data
+        setDbState({ kind: 'ok', data })
+        return data
       })
       .catch((err: Error) => {
-        if (cancelled) return
-        setState({ kind: 'error', message: err.message })
+        if (!cancelled) setDbState({ kind: 'error', message: err.message })
+        return null
       })
+
+    // Discover runs in parallel. We chain on dbPromise so we can pass dbNames to Gemini for de-duping,
+    // but discover doesn't *wait* on DB UI render — that's the point.
+    const aiPromise = dbPromise
+      .then((dbData) => {
+        const dbNames = dbData?.results.map((t) => t.name) ?? []
+        return fetch('/api/search/discover', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: trimmed, dbNames }),
+        })
+      })
+      .then(async (r) => {
+        if (!r.ok) {
+          const body = (await r.json().catch(() => ({}))) as { error?: string }
+          throw new Error(body.error ?? `Request failed (${r.status})`)
+        }
+        return (await r.json()) as AiResponse
+      })
+      .then((data) => {
+        if (cancelled) return data
+        setAiState({ kind: 'ok', data })
+        return data
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setAiState({ kind: 'error', message: err.message })
+        return null
+      })
+
+    // Fire analytics once both halves settle so we have a stable result_count / ai_count plus the
+    // pipeline meta (which retrieval path ran, HyDE firing rate, reranker score stats). The meta is what
+    // lets us tune the magic constants in lib/search.ts after the fact instead of guessing.
+    Promise.all([dbPromise, aiPromise]).then(([dbData, aiData]) => {
+      if (cancelled || !dbData) return
+      posthog?.capture('search_performed', {
+        query: trimmed,
+        result_count: dbData.count + (aiData?.aiCount ?? 0),
+        db_count: dbData.dbCount,
+        ai_count: aiData?.aiCount ?? 0,
+        no_results: dbData.noResults && (aiData?.aiCount ?? 0) === 0,
+        ai_first: aiFirst,
+        source_filter: sourceFilter,
+        filters: filters && Object.keys(filters).some((k) => {
+          const v = (filters as Record<string, unknown>)[k]
+          return Array.isArray(v) ? v.length > 0 : Boolean(v)
+        }) ? filters : null,
+        // Pipeline telemetry — flatten into event props for easy faceting in PostHog.
+        retrieval_path: dbData.meta?.path,
+        hyde_expanded: dbData.meta?.hyde_expanded,
+        reranker_status: dbData.meta?.reranker,
+        eligible_count: dbData.meta?.eligible_count,
+        candidate_count: dbData.meta?.candidate_count,
+        rerank_filtered: dbData.meta?.rerank_filtered,
+        rerank_score_top: dbData.meta?.rerank_score_top,
+        rerank_score_median: dbData.meta?.rerank_score_median,
+      })
+    })
+
     return () => {
       cancelled = true
     }
@@ -93,72 +169,78 @@ export function SearchResults({ query, filters, sourceFilter = 'all', aiFirst = 
     )
   }
 
-  if (state.kind === 'loading') {
-    return (
-      <div className="flex items-center gap-3 text-base font-bold text-text-secondary">
-        <Spinner /> Searching the library and asking Gemini…
-      </div>
-    )
-  }
-
-  if (state.kind === 'error') {
-    return (
-      <div className="rounded-md border-2 border-border bg-accent-pink p-4 text-sm font-bold text-text-primary shadow-[4px_4px_0px_#1A1A1A]">
-        {state.message}
-      </div>
-    )
-  }
-
-  if (state.kind !== 'ok') return null
-
-  const { results } = state.data
-  if (state.data.noResults) return <NoResults query={trimmed} />
-
-  const dbTools = results.filter((r) => r.source !== 'gemini')
-  const aiTools = results.filter((r) => r.source === 'gemini')
+  const dbTools = dbState.kind === 'ok' ? dbState.data.results : []
+  const aiTools = aiState.kind === 'ok' ? aiState.data.results : []
+  const dbNoResults = dbState.kind === 'ok' && dbState.data.noResults
+  const aiNoResults = aiState.kind === 'ok' && aiTools.length === 0
 
   const showDb = sourceFilter !== 'ai-discovered'
   const showAi = sourceFilter !== 'library'
 
-  const dbSection =
-    showDb && dbTools.length > 0 ? (
-      <section key="db">
-        <SectionHeader title="From the library" count={dbTools.length} tone="accent-blue" />
-        <ResultGrid tools={dbTools} query={trimmed} />
-      </section>
-    ) : null
+  // Bail out only when both halves came back empty — keeps the UI from blinking NoResults while Gemini
+  // is still searching.
+  if (dbNoResults && aiNoResults) {
+    return <NoResults query={trimmed} />
+  }
 
-  const aiSection =
-    showAi && aiTools.length > 0 ? (
-      <section key="ai">
-        <SectionHeader title="AI-discovered" count={aiTools.length} tone="accent-glow" />
+  if (dbState.kind === 'error' && aiState.kind === 'error') {
+    return (
+      <div className="rounded-md border-2 border-border bg-accent-pink p-4 text-sm font-bold text-text-primary shadow-[4px_4px_0px_#1A1A1A]">
+        {dbState.message}
+      </div>
+    )
+  }
+
+  const dbSection = showDb ? (
+    <section key="db">
+      <SectionHeader
+        title="From the library"
+        count={dbTools.length}
+        tone="accent-blue"
+        loading={dbState.kind === 'loading'}
+      />
+      {dbState.kind === 'loading' ? (
+        <SkeletonGrid />
+      ) : dbTools.length > 0 ? (
+        <ResultGrid tools={dbTools} query={trimmed} />
+      ) : sourceFilter === 'library' ? (
+        <NoResults query={trimmed} />
+      ) : null}
+    </section>
+  ) : null
+
+  const aiSection = showAi ? (
+    <section key="ai">
+      <SectionHeader
+        title="AI-discovered"
+        count={aiTools.length}
+        tone="accent-glow"
+        loading={aiState.kind === 'loading'}
+      />
+      {aiState.kind === 'loading' ? (
+        <SkeletonGrid />
+      ) : aiTools.length > 0 ? (
         <AiGrid tools={aiTools} query={trimmed} />
-      </section>
-    ) : null
+      ) : sourceFilter === 'ai-discovered' ? (
+        <p className="text-sm font-bold text-text-secondary">No AI-discovered tools for this query.</p>
+      ) : null}
+    </section>
+  ) : null
 
   const ordered = aiFirst ? [aiSection, dbSection] : [dbSection, aiSection]
-
-  return (
-    <div className="space-y-12">
-      {ordered}
-      {showDb && dbTools.length === 0 && sourceFilter === 'library' && (
-        <NoResults query={trimmed} />
-      )}
-      {showAi && aiTools.length === 0 && sourceFilter === 'ai-discovered' && (
-        <p className="text-sm font-bold text-text-secondary">No AI-discovered tools for this query.</p>
-      )}
-    </div>
-  )
+  return <div className="space-y-12">{ordered}</div>
 }
 
 function SectionHeader({
   title,
   count,
   tone,
+  loading,
 }: {
   title: string
   count: number
   tone: 'accent-blue' | 'accent-glow'
+  loading?: boolean
 }) {
   const bg = tone === 'accent-blue' ? 'bg-accent-blue' : 'bg-accent-glow'
   return (
@@ -166,9 +248,29 @@ function SectionHeader({
       <span className={`inline-block rounded-pill border-2 border-border ${bg} px-4 py-1 text-sm font-extrabold text-text-primary shadow-[3px_3px_0px_#1A1A1A]`}>
         {title}
       </span>
-      <span className="text-sm font-bold text-text-secondary">
-        {count} result{count === 1 ? '' : 's'}
-      </span>
+      {loading ? (
+        <span className="flex items-center gap-2 text-sm font-bold text-text-secondary">
+          <Spinner /> searching…
+        </span>
+      ) : (
+        <span className="text-sm font-bold text-text-secondary">
+          {count} result{count === 1 ? '' : 's'}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function SkeletonGrid() {
+  // Three skeleton cards keep the section's vertical rhythm stable while the fetch resolves — no layout shift.
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          className="h-32 animate-pulse rounded-lg border-2 border-border bg-surface-2 shadow-[4px_4px_0px_#1A1A1A]"
+        />
+      ))}
     </div>
   )
 }
@@ -188,7 +290,6 @@ function ResultGrid({ tools, query }: { tools: ToolResult[]; query: string }) {
             ease: [0.16, 1, 0.3, 1],
           }}
           onClick={() => {
-            // Bubbles up from the inner <Link>; fires before navigation.
             posthog?.capture('search_result_clicked', {
               tool_slug: tool.slug,
               tool_name: tool.name,
@@ -223,7 +324,6 @@ function AiGrid({ tools, query }: { tools: ToolResult[]; query: string }) {
             ease: [0.16, 1, 0.3, 1],
           }}
           onClick={() => {
-            // Two events: clicked-the-result (with position) AND website-clicked (downstream behavior).
             posthog?.capture('search_result_clicked', {
               tool_slug: tool.slug || tool.name.toLowerCase(),
               tool_name: tool.name,

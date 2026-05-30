@@ -65,6 +65,26 @@ const config: Config = {
           '0%': { opacity: '0', transform: 'translateY(8px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        'fade-up': {
+          '0%': { opacity: '0', transform: 'translateY(24px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'pop-in': {
+          '0%': { opacity: '0', transform: 'scale(0.8)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        'tilt-in': {
+          '0%': { opacity: '0', transform: 'translateY(20px) rotate(-5deg)' },
+          '100%': { opacity: '1', transform: 'translateY(0) rotate(-2deg)' },
+        },
+        'slide-in': {
+          '0%': { opacity: '0', transform: 'translateX(60px) rotate(6deg)' },
+          '100%': { opacity: '1', transform: 'translateX(0) rotate(0)' },
+        },
+        float: {
+          '0%, 100%': { transform: 'translateY(-12px)' },
+          '50%': { transform: 'translateY(12px)' },
+        },
         spin: {
           '0%': { transform: 'rotate(0deg)' },
           '100%': { transform: 'rotate(360deg)' },
@@ -72,6 +92,11 @@ const config: Config = {
       },
       animation: {
         'fade-in': 'fade-in 500ms cubic-bezier(0.16, 1, 0.3, 1) both',
+        'fade-up': 'fade-up 600ms cubic-bezier(0.16, 1, 0.3, 1) both',
+        'pop-in': 'pop-in 600ms cubic-bezier(0.34, 1.56, 0.64, 1) both',
+        'tilt-in': 'tilt-in 700ms cubic-bezier(0.34, 1.56, 0.64, 1) both',
+        'slide-in': 'slide-in 800ms cubic-bezier(0.34, 1.56, 0.64, 1) both',
+        float: 'float 4s ease-in-out infinite',
         spin: 'spin 700ms linear infinite',
       },
     },

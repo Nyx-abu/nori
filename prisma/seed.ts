@@ -1,5 +1,5 @@
 import { PrismaClient, PricingType } from '@prisma/client'
-import { embed, toPgVectorLiteral } from '../lib/embeddings'
+import { embedToolFields, toPgVectorLiteral } from '../lib/embeddings'
 
 const prisma = new PrismaClient()
 
@@ -312,6 +312,22 @@ async function main() {
   console.log('▸ Enabling pgvector extension')
   await prisma.$executeRawUnsafe('CREATE EXTENSION IF NOT EXISTS vector;')
 
+  console.log('▸ Ensuring AiTool.searchVector (tsvector, generated, weighted A>B>C)')
+  // tsvector is a GENERATED ALWAYS column so writes to name/tagline/description automatically refresh it.
+  // Weights: name=A (highest), tagline=B, description=C — so exact name matches dominate lexical ranking.
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "AiTool" ADD COLUMN IF NOT EXISTS "searchVector" tsvector
+      GENERATED ALWAYS AS (
+        setweight(to_tsvector('english', coalesce(name, '')), 'A') ||
+        setweight(to_tsvector('english', coalesce(tagline, '')), 'B') ||
+        setweight(to_tsvector('english', coalesce(description, '')), 'C')
+      ) STORED;
+  `)
+  await prisma.$executeRawUnsafe(`
+    CREATE INDEX IF NOT EXISTS "AiTool_searchVector_idx"
+      ON "AiTool" USING GIN ("searchVector");
+  `)
+
   console.log('▸ Resetting embedding/tag joins for idempotency')
   // safe order — joins/embeddings first so foreign keys don't block
   await prisma.toolEmbedding.deleteMany()
@@ -361,23 +377,34 @@ async function main() {
       },
     })
 
-    console.log(`  · ${t.name} — generating embedding`)
-    const text = `${t.name}. ${t.tagline}. ${t.description}`
-    const vec = await embed(text, 'document')
-    const lit = toPgVectorLiteral(vec)
+    console.log(`  · ${t.name} — generating per-field embeddings`)
+    const vecs = await embedToolFields(t.name, t.tagline, t.description, 'document')
 
-    // ensure table column type is vector(768); CREATE if Prisma's Unsupported migration was skipped
     await prisma.$executeRawUnsafe(
-      `INSERT INTO "ToolEmbedding" (id, "toolId", vector) VALUES ($1, $2, $3::vector)`,
+      `INSERT INTO "ToolEmbedding" (id, "toolId", "nameVec", "taglineVec", "descriptionVec")
+       VALUES ($1, $2, $3::halfvec, $4::halfvec, $5::halfvec)`,
       cuid(),
       tool.id,
-      lit,
+      toPgVectorLiteral(vecs.name),
+      toPgVectorLiteral(vecs.tagline),
+      toPgVectorLiteral(vecs.description),
     )
   }
 
-  console.log('▸ Creating IVF index for cosine search')
+  console.log('▸ Creating HNSW indexes for cosine search (one per field)')
+  // HNSW beats IVFFlat for the auto-insert-on-discovery write pattern — it doesn't need lists tuning and
+  // handles point insertions without periodic rebuilds. halfvec_cosine_ops is the right opclass for halfvec.
   await prisma.$executeRawUnsafe(
-    `CREATE INDEX IF NOT EXISTS tool_embedding_vector_idx ON "ToolEmbedding" USING ivfflat (vector vector_cosine_ops) WITH (lists = 10);`,
+    `CREATE INDEX IF NOT EXISTS tool_embedding_name_hnsw_idx
+       ON "ToolEmbedding" USING hnsw ("nameVec" halfvec_cosine_ops);`,
+  )
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS tool_embedding_tagline_hnsw_idx
+       ON "ToolEmbedding" USING hnsw ("taglineVec" halfvec_cosine_ops);`,
+  )
+  await prisma.$executeRawUnsafe(
+    `CREATE INDEX IF NOT EXISTS tool_embedding_description_hnsw_idx
+       ON "ToolEmbedding" USING hnsw ("descriptionVec" halfvec_cosine_ops);`,
   )
 
   console.log('✓ Seed complete')

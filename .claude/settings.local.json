@@ -25,7 +25,13 @@
       "Bash(curl -sv \"http://localhost:3000/api/workflows/cmpcxrdgt0005p2p6rri2tcve\")",
       "Bash(curl -s -X POST http://localhost:3000/api/search -H 'content-type: application/json' -d '{\"query\":\"__TRACKED_VAR__ image generation\"}')",
       "Bash(python -c \"import sys,json; d=json.loads\\(sys.stdin.read\\(\\)\\); print\\('first  ->', 'cached=', d.get\\('cached'\\), 'db=', d.get\\('dbCount'\\), 'ai=', d.get\\('aiCount'\\)\\)\")",
-      "Bash(curl -s -X POST http://localhost:3000/api/search -H 'content-type: application/json' -d '{\"query\":\"__TRACKED_VAR__ research paper assistant\"}')"
+      "Bash(curl -s -X POST http://localhost:3000/api/search -H 'content-type: application/json' -d '{\"query\":\"__TRACKED_VAR__ research paper assistant\"}')",
+      "PowerShell(Get-ChildItem D:\\\\nori\\\\app -Recurse -File | Where-Object { $_.Extension -in '.tsx','.ts' } | Select-Object FullName, Length | Sort-Object Length -Descending | Select-Object -First 30)",
+      "PowerShell(Get-ChildItem D:\\\\nori\\\\public -File | Sort-Object Length -Descending | Select-Object Name, @{n='SizeKB';e={[math]::Round\\($_.Length/1KB,1\\)}} | Format-Table -AutoSize)",
+      "Bash(node *)",
+      "Bash(npx tsc *)",
+      "Bash(npx tsx *)",
+      "Bash(awk '{print substr\\($0, 1, 6\\)}')"
     ]
   }
 }

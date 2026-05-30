@@ -67,7 +67,7 @@ export function ToolLogo({ name, domain, size = 44, className, framed = false }:
         alt={`${name} logo`}
         width={size}
         height={size}
-        loading="eager"
+        loading="lazy"
         decoding="async"
         style={{
           width: size,

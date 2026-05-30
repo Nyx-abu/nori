@@ -1,11 +1,10 @@
-// P4 decision: parallel DB+Gemini with Promise.allSettled. Each side fails independently. Names are deduped case-insensitively to avoid showing a tool twice. Filters apply only to the DB side; Gemini results are intentionally unfiltered (small set, augmentation only).
+// DB-only fast path. Gemini live-discovery moved to /api/search/discover so a slow Gemini call can't
+// block the library section from painting. The client fires both endpoints in parallel and renders each
+// section as it resolves — see components/search/SearchResults.tsx.
 import { NextResponse } from 'next/server'
 import { PricingType } from '@prisma/client'
 import { sanitizeQuery } from '@/lib/sanitize'
-import { searchTools } from '@/lib/search'
-import { discoverToolsWithGemini } from '@/lib/gemini-discovery'
-import { persistDiscoveredTools } from '@/lib/auto-library'
-import { getDomainFromUrl } from '@/lib/logo'
+import { searchTools, type SearchMeta } from '@/lib/search'
 import { cacheGet, cacheSet, stableHash } from '@/lib/redis'
 import type { ApiError, ToolResult } from '@/lib/types'
 
@@ -51,7 +50,6 @@ export async function POST(req: Request) {
       ? (body.filters as FiltersIn)
       : {}
 
-  // Normalize: accept legacy single pricing string OR array; same for category/categorySlug
   const pricingArr: PricingType[] = (() => {
     const raw = filtersIn.pricing
     if (Array.isArray(raw)) {
@@ -83,9 +81,9 @@ export async function POST(req: Request) {
 
   const openSourceOnly = filtersIn.openSourceOnly === true
 
-  // Cache key includes everything that changes the result: normalized query + all filters.
-  // Bump SEARCH_CACHE_VERSION when the response shape or ranking changes so stale entries are ignored.
-  const cacheKey = `search:v2:${stableHash({
+  // Cache key prefix changed to v3 because the DB pipeline is now multi-vector RRF + reranker — old v2
+  // entries would be served with the wrong shape (no aiCount, no ai results).
+  const cacheKey = `search:v3:db:${stableHash({
     q: query.toLowerCase(),
     pricing: pricingArr.slice().sort(),
     platforms: platformsArr.slice().sort(),
@@ -100,7 +98,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const dbPromise = searchTools({
+    const { results, meta } = await searchTools({
       query,
       filters: {
         ...(pricingArr.length ? { pricing: pricingArr } : {}),
@@ -111,60 +109,15 @@ export async function POST(req: Request) {
       },
     })
 
-    const geminiPromise = discoverToolsWithGemini(query, [])
-
-    const [dbRes, geminiRes] = await Promise.allSettled([dbPromise, geminiPromise])
-
-    const dbTools: ToolResult[] = dbRes.status === 'fulfilled' ? dbRes.value : []
-    const aiDiscovered = geminiRes.status === 'fulfilled' ? geminiRes.value : []
-
-    // Fire-and-forget: save discovered tools to the library so future searches find them via DB
-    // even if Gemini is rate-limited. Never blocks the response.
-    if (aiDiscovered.length > 0) {
-      void persistDiscoveredTools(aiDiscovered)
-    }
-
-    const dbNames = new Set(dbTools.map((t) => t.name.toLowerCase()))
-    const aiTools: ToolResult[] = aiDiscovered
-      .filter((t) => !dbNames.has(t.name.toLowerCase()))
-      .map((t, i) => ({
-        id: `gemini-${i}-${t.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
-        slug: '',
-        name: t.name,
-        tagline: t.tagline,
-        description: t.tagline,
-        website: t.website,
-        domain: getDomainFromUrl(t.website),
-        pricing: t.pricing as PricingType,
-        isOpenSource: t.isOpenSource,
-        isPrivacyFocused: t.isPrivacyFocused,
-        platforms: t.platforms,
-        trustScore: 0,
-        category: {
-          id: 'gemini',
-          slug: 'discovered',
-          name: 'AI-discovered',
-          icon: 'M5 3v18m14-18v18M5 12h14',
-        },
-        tags: [],
-        source: 'gemini' as const,
-        whyRelevant: t.whyRelevant,
-      }))
-
-    const results = [...dbTools, ...aiTools]
-
     const response: SearchResponse = {
       results,
-      dbCount: dbTools.length,
-      aiCount: aiTools.length,
+      dbCount: results.length,
       query,
       count: results.length,
       noResults: results.length === 0,
+      meta,
     }
 
-    // 12h TTL: long enough that a user re-running the same prompt gets instant results
-    // and no second Gemini call. Auto-persisted Gemini tools are already in the DB by now,
-    // so even past the TTL the next search returns them via semantic search.
     void cacheSet(cacheKey, response, 12 * 60 * 60)
 
     return NextResponse.json(response)
@@ -177,8 +130,8 @@ export async function POST(req: Request) {
 type SearchResponse = {
   results: ToolResult[]
   dbCount: number
-  aiCount: number
   query: string
   count: number
   noResults: boolean
+  meta: SearchMeta
 }

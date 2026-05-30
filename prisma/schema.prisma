@@ -1,4 +1,7 @@
-// Phase 2 decision: ToolEmbedding is split into its own table so embedding regeneration doesn't dirty the AiTool row, and vector ops stay on a small focused relation.
+// Multi-vector rewrite: each tool now has three halfvec(3072) embeddings — name, tagline, description — so a query
+// can match any field directly instead of fighting a single diluted blob. halfvec stores in 2 bytes per dim, so 3×3072
+// is ~18KB/tool — cheap compared to the recall lift vs the old 768-d Matryoshka cut. HNSW indexes are created per
+// column (one per field) at seed time. A weighted tsvector on AiTool feeds the lexical leg of RRF.
 
 generator client {
   provider        = "prisma-client-js"
@@ -38,10 +41,13 @@ model AiTool {
 }
 
 model ToolEmbedding {
-  id     String                    @id @default(cuid())
-  toolId String                    @unique
-  tool   AiTool                    @relation(fields: [toolId], references: [id], onDelete: Cascade)
-  vector Unsupported("vector(768)")
+  id             String                       @id @default(cuid())
+  toolId         String                       @unique
+  tool           AiTool                       @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  // halfvec stores half-precision floats; HNSW indexes halfvec up to 4000 dim (`vector` only up to 2000).
+  nameVec        Unsupported("halfvec(3072)")
+  taglineVec     Unsupported("halfvec(3072)")
+  descriptionVec Unsupported("halfvec(3072)")
 }
 
 model Category {

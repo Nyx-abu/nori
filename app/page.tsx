@@ -1,9 +1,20 @@
+import { Suspense } from 'react'
 import { Hero } from '@/components/home/Hero'
 import { FeaturedTools } from '@/components/home/FeaturedTools'
 import { CategoryGrid } from '@/components/home/CategoryGrid'
 import { WorkflowShowcase } from '@/components/home/WorkflowShowcase'
 import { WaveDivider } from '@/components/ui/WaveDivider'
 import Image from 'next/image'
+
+export const revalidate = 300
+
+function SectionSkeleton({ height = 'h-64' }: { height?: string }) {
+  return (
+    <div className={`mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 ${height}`}>
+      <div className="h-full w-full animate-pulse rounded-xl bg-black/5" />
+    </div>
+  )
+}
 
 export default function HomePage() {
   return (
@@ -24,13 +35,16 @@ export default function HomePage() {
                 alt="AI search magnifying glass"
                 width={160}
                 height={160}
-                priority
+                loading="lazy"
+                sizes="160px"
               />
               <p className="mt-2 text-center text-xs font-black text-text-primary tracking-wide">AI Discovery</p>
             </div>
           </div>
         </div>
-        <FeaturedTools />
+        <Suspense fallback={<SectionSkeleton height="h-96" />}>
+          <FeaturedTools />
+        </Suspense>
       </div>
 
       <WaveDivider topColor="#D4AF37" bottomColor="#FDFBF7" />
@@ -45,13 +59,16 @@ export default function HomePage() {
                 alt="Neural network nodes"
                 width={160}
                 height={160}
-                priority
+                loading="lazy"
+                sizes="160px"
               />
               <p className="mt-2 text-center text-xs font-black text-text-primary tracking-wide">Semantic Vector</p>
             </div>
           </div>
         </div>
-        <CategoryGrid />
+        <Suspense fallback={<SectionSkeleton height="h-72" />}>
+          <CategoryGrid />
+        </Suspense>
       </div>
 
       <WaveDivider topColor="#FDFBF7" bottomColor="#74A4F2" />
@@ -66,13 +83,16 @@ export default function HomePage() {
                 alt="Retro computer terminal"
                 width={150}
                 height={150}
-                priority
+                loading="lazy"
+                sizes="150px"
               />
               <p className="mt-2 text-center text-xs font-black text-text-primary tracking-wide">Agent Terminal</p>
             </div>
           </div>
         </div>
-        <WorkflowShowcase />
+        <Suspense fallback={<SectionSkeleton height="h-64" />}>
+          <WorkflowShowcase />
+        </Suspense>
       </div>
     </div>
   )

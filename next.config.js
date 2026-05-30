@@ -11,6 +11,10 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client', 'prisma'],
   },
+  images: {
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 60 * 60 * 24 * 30,
+  },
   async headers() {
     return [
       {

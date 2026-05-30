@@ -1,7 +1,7 @@
 // Fix-pass decision: auto-persist discovered Gemini tools so they show up via library search next time even when Gemini is rate-limited. Designed to be fire-and-forget — every failure path is swallowed and logged. Embeddings are generated last so a Gemini-embed outage still leaves the tool in the library (it just won't be vector-searchable until re-seeded).
 import { prisma } from './db'
 import { PricingType } from '@prisma/client'
-import { embed, toPgVectorLiteral } from './embeddings'
+import { embedToolFields, toPgVectorLiteral } from './embeddings'
 import type { DiscoveredTool } from './gemini-discovery'
 
 const SLUG_MAX = 80
@@ -96,17 +96,20 @@ export async function persistDiscoveredTool(tool: DiscoveredTool): Promise<strin
       select: { id: true },
     })
 
-    // Generate embedding so it shows up in semantic search too. Best-effort:
-    // if Gemini-embed is rate-limited the tool is still in the library and surfaces via lexical search.
+    // Per-field embeddings so the tool shows up in semantic search via any of name/tagline/description ranks.
+    // Best-effort: if Gemini-embed is rate-limited the tool is still in the library and surfaces via the
+    // tsvector lexical leg of RRF.
     try {
-      const vec = await embed(`${tool.name}. ${tool.tagline}. ${description}`, 'document')
-      const lit = toPgVectorLiteral(vec)
+      const vecs = await embedToolFields(tool.name, tool.tagline, description, 'document')
       await prisma.$executeRawUnsafe(
-        `INSERT INTO "ToolEmbedding" (id, "toolId", vector) VALUES ($1, $2, $3::vector)
+        `INSERT INTO "ToolEmbedding" (id, "toolId", "nameVec", "taglineVec", "descriptionVec")
+         VALUES ($1, $2, $3::halfvec, $4::halfvec, $5::halfvec)
          ON CONFLICT ("toolId") DO NOTHING`,
         embeddingIdFor(created.id),
         created.id,
-        lit,
+        toPgVectorLiteral(vecs.name),
+        toPgVectorLiteral(vecs.tagline),
+        toPgVectorLiteral(vecs.description),
       )
     } catch (embedErr) {
       const msg = embedErr instanceof Error ? embedErr.message : String(embedErr)

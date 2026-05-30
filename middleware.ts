@@ -36,12 +36,16 @@ const buckets = new Map<string, Bucket>()
 const WINDOW_MS = 60_000
 
 function rateLimitKey(ip: string, path: string) {
+  // /api/search and /api/search/discover get separate buckets so the paired-call pattern from the
+  // frontend (one search fires both) doesn't halve the user's effective query budget.
+  if (path.startsWith('/api/search/discover')) return `${ip}:discover`
   if (path.startsWith('/api/search')) return `${ip}:search`
   if (path.startsWith('/api/workflows/create')) return `${ip}:wf-create`
   return `${ip}:other`
 }
 
 function limitFor(path: string) {
+  if (path.startsWith('/api/search/discover')) return { count: 20, windowMs: 60_000 }
   if (path.startsWith('/api/search')) return { count: 20, windowMs: 60_000 }
   if (path.startsWith('/api/workflows/create')) return { count: 10, windowMs: 60 * 60_000 } // 10/hr
   return { count: 60, windowMs: 60_000 }
