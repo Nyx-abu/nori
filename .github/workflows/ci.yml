@@ -6,6 +6,23 @@ on:
   pull_request:
     branches: [ main ]
 
+# Shared env vars available to every step in the job.
+# DATABASE_URL and DIRECT_URL both point to the pgvector container spun up as a service.
+env:
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nori?schema=public
+  DIRECT_URL: postgresql://postgres:postgres@localhost:5432/nori?schema=public
+  # Stub values satisfy Clerk / Next.js env validation at build time without real keys.
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_placeholder
+  CLERK_SECRET_KEY: sk_test_placeholder
+  # PostHog stubs — required by providers.tsx at build time
+  NEXT_PUBLIC_POSTHOG_KEY: phc_placeholder
+  NEXT_PUBLIC_POSTHOG_HOST: https://app.posthog.com
+  # Clerk URL stubs required by middleware
+  NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
+  NEXT_PUBLIC_CLERK_SIGN_UP_URL: /sign-up
+  NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL: /
+  NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL: /
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -38,44 +55,44 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      # ── 1. Security Audit ─────────────────────────────────────────────────
+      # Fail the job only on critical severity; high/moderate are reported as
+      # warnings. Pinned versions (e.g. Next.js 14.2.18) are tracked in the
+      # summary so maintainers can review before bumping stack versions.
       - name: Security Audit (npm audit)
-        run: |
-          # Output warnings if vulnerabilities exist, but let the job fail if critical issues arise.
-          # Alternatively, you can use 'npm audit' to strictly fail, or warn for pinned packages:
-          npm audit --audit-level=critical || echo "Warning: Critical vulnerabilities detected in package dependencies."
+        run: npm audit --audit-level=critical || echo "::warning::High/moderate vulnerabilities detected — review before the next version bump."
 
+      # ── 2. Database & Prisma Integrity ───────────────────────────────────
       - name: Validate Prisma Schema
         run: npx prisma validate
 
-      - name: Sync Database Schema (db push)
+      - name: Push Schema to Test Database
         run: npx prisma db push
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nori?schema=public
 
-      - name: Code Linting
+      # ── 3. Code Quality & Build ───────────────────────────────────────────
+      - name: Code Linting (ESLint)
         run: npm run lint
 
-      - name: TypeScript Type Checking
+      - name: TypeScript Type Check
         run: npx tsc --noEmit
 
       - name: Build Next.js Application
         run: npm run build
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nori?schema=public
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_placeholder
-          CLERK_SECRET_KEY: sk_test_placeholder
 
-      - name: Seed and Evaluate Search Relevance
+      # ── 4. Search Relevance Benchmarking ─────────────────────────────────
+      # Seeding requires GEMINI_API_KEY to generate embeddings; evaluation also
+      # needs JINA_API_KEY for the cross-encoder reranker. Both are optional:
+      # on forks or when secrets aren't configured the step skips gracefully.
+      - name: Seed Database & Run Relevance Eval
         run: |
-          if [ -n "${{ secrets.GEMINI_API_KEY }}" ] && [ -n "${{ secrets.JINA_API_KEY }}" ]; then
-            echo "Seeding test database..."
+          if [ -n "$GEMINI_API_KEY" ] && [ -n "$JINA_API_KEY" ]; then
+            echo "Seeding test database with curated tools + per-field embeddings..."
             npm run db:seed
-            echo "Running search relevance evaluation..."
+            echo "Running nDCG@10 / P@10 / R@10 evaluation suite..."
             npm run eval:search
           else
-            echo "Skipping seeding and search evaluation as GEMINI_API_KEY / JINA_API_KEY are not configured in GitHub Secrets."
+            echo "::notice::Skipping seed & eval — GEMINI_API_KEY and/or JINA_API_KEY not set in repository secrets."
           fi
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/nori?schema=public
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
