@@ -8,140 +8,205 @@
 |_| \_|\_____/|_| \_\|___|
 ```
 
-> **A vibrant, playful, pop-art / neobrutalist platform for discovering AI tools and composing them into interactive, multi-node canvas workflows.**
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Next.js](https://img.shields.io/badge/Next.js-14.2.18-black?logo=next.js)](https://nextjs.org)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38bdf8?logo=tailwind-css)](https://tailwindcss.com)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue?logo=typescript)](https://www.typescriptlang.org)
+[![React Flow](https://img.shields.io/badge/React_Flow-11-ff007f?logo=react)](https://reactflow.dev)
+[![Clerk](https://img.shields.io/badge/Auth-Clerk_5-6c47ff?logo=clerk)](https://clerk.com)
+[![Database](https://img.shields.io/badge/Database-Neon_Postgres-00e599?logo=postgresql)](https://neon.tech)
+
+> **Nori is a professional, visual-first AI tool discovery platform and infinite canvas workflow builder. It allows users to search for AI tools using advanced semantic query pipelines, discover new tools in real-time, and compose them into interactive, multi-node step-by-step workflows.**
+
+Featuring a vibrant, high-contrast **Neobrutalist Pop-Art** design language, Nori is built for maximum responsiveness, visual engagement, and robust reliability under high load.
 
 ---
 
-## ⚡ The Vibe: Neobrutalist Pop-Art
-Nori is designed to stand out. Inspired by modern high-contrast aesthetic pioneers (like *Super Hello* and *Jelly Bean*), the UI ditches boring flat gray grids in favor of a loud, alive, and highly-tactile experience:
-*   **Tactile Physics:** Bouncy Framer Motion spring physics on every hover, click, and transition.
-*   **Thick Boarders & Offset Shadows:** Bold `#1A1A1A` borders (`border-2` and `border-4`) paired with hard flat offset shadows (`shadow-[Nx_Nx_0px_#1A1A1A]`).
-*   **Playful Styling & Wavy Dividers:** A beautiful cream white canvas (`#FDFBF7`) divided into colorful sections (Hero in vibrant Pink, Trending in Gold, Categories in Cream, and Workflows in Sky Blue) using custom neobrutalist **SVG Wave Dividers**.
-*   **Static Corner Stickers:** Static, hand-designed retro-terminal, magnifying glass, and neural-node stickers flanking content grids like real physical stickers.
+## ⚡ Design Philosophy: Neobrutalist Pop-Art
+
+Nori intentionally rejects flat, generic minimalist styles in favor of a tactile, alive, and highly responsive user interface:
+*   **Tactile Feedback & Physics:** Custom Framer Motion spring physics trigger bouncy, physical-feeling transformations on hover, click, and transition.
+*   **Thick Strokes & Offset Shadows:** Defined by `#1A1A1A` borders (`border-2` and `border-4`) paired with flat offset drop shadows (`shadow-[Nx_Nx_0px_#1A1A1A]`) that make elements pop off the screen.
+*   **Structured Color Palette:** Soft cream white canvas (`#FDFBF7`) contrasted with bold, curated highlight zones (Vibrant Pink, Gold, Sky Blue) separated by neobrutalist SVG wavy dividers (`<WaveDivider>`).
+*   **Viewport Corner Stickers:** Hand-designed retro-terminal, magnifying glass, and neural-node cards pinned statically adjacent to layout grids to simulate real sticker decoration without interfering with pointer events.
+*   **Mobile Form Layout Protection:** All text inputs, textareas, and select menus scale to at least `text-base` (16px) on mobile viewports to prevent iOS browser auto-zoom layout distortion.
 
 ---
 
-## 🚀 Key Features & Prowess
+## 🚀 Architectural Blueprint & Pipelines
 
-### 1. Dual Search Pipelines (⚡ Semantic Vector + 🏎️ Fast Lexical)
-Nori runs two distinct search engines tailored to completely different performance and cost profiles:
+Nori split its operations into specialized engines to maintain extreme responsiveness and support massive search scalability.
+
+### 1. Global Semantic Search & Fusion Pipeline (`POST /api/search`)
+
+The global search utilizes a hybrid dense-vector and sparse-lexical retrieval pipeline, executed inside a single, highly optimized Neon Postgres database transaction.
 
 ```mermaid
 graph TD
     %% Global Semantic Search (POST /api/search)
     subgraph Global [Global Semantic Search - api/search]
         Query[User Natural Query] --> Sanitize[Sanitize & Strip HTML]
-        Sanitize --> Embed[Gemini gemini-embedding-001]
-        Embed --> Vector[Raw SQL pgvector Cosine Search]
-        Vector --> ScoreCheck{Cosine Similarity >= 0.62?}
-        ScoreCheck -- No --> Empty[NoResults UI State]
-        ScoreCheck -- Yes --> Filter[Prisma Candidate Filters]
-        Filter --> Parallel[Promise.allSettled]
-        Parallel --> DB[Top 10 Curated DB Tools]
-        Parallel --> Live[Gemini Live Discovery]
-        DB & Live --> Dedupe[Deduplicate by Name DB wins]
-        Dedupe --> Persist[Auto-Persist Discovered Tools in BG]
-        Dedupe --> Render[Client-Side Render with AI-First Toggle]
-    end
-
-    %% Fast Lexical Canvas Drawer (GET /api/tools/search)
-    subgraph Drawer [Lexical Canvas Drawer - api/tools/search]
-        QInput[Drawer Input keystrokes] --> Debounce[300ms Debounce]
-        Debounce --> Contains[Prisma 'contains' scan name/tagline/category]
-        Contains --> FastLive[Optional Fast Gemini discovery if q > 1]
-        FastLive & Contains --> TokenRank[Deterministic Token-Overlap Ranking]
-        TokenRank --> RenderDrawer[Top 25 Ordered results with explanations]
+        Sanitize --> QueryLen{Query < 4 Tokens?}
+        QueryLen -- Yes --> HyDE[HyDE Query Expansion: Gemini Flash]
+        QueryLen -- No --> RawQuery[Original Query]
+        HyDE --> Embed[Generate Query Vector: gemini-embedding-001]
+        RawQuery --> Embed
+        Embed --> DBTransaction[Begin Transaction: SET ef_search = 100]
+        DBTransaction --> CTE[4-Way Parallel Retrieval CTE]
+        CTE --> R1[1. Name Vector Cosine Distance]
+        CTE --> R2[2. Tagline Vector Cosine Distance]
+        CTE --> R3[3. Description Vector Cosine Distance]
+        CTE --> R4[4. tsvector ts_rank_cd Lexical Search]
+        R1 & R2 & R3 & R4 --> RFF[Reciprocal Rank Fusion - RRF]
+        RFF --> RerankCheck{Jina Reranker Key Present?}
+        RerankCheck -- Yes --> Jina[Jina Cross-Encoder Reranking]
+        RerankCheck -- No --> FallbackRRF[Fallback to RRF Order]
+        Jina --> Sigmoid{Sigmoid Score >= 0.3?}
+        Sigmoid -- Yes --> Top10[Take Top-10 Curated DB Tools]
+        Sigmoid -- No --> Drop[Drop Candidate]
+        FallbackRRF --> Top10
+        Top10 --> Shape[shapeTool Mapper]
+        Shape --> Response[Return Results + Telemetry Meta]
+        
+        %% Fallbacks
+        Embed -.->|Embedding Failure| LexicalFallback[Lexical-Only Fallback: tsvector]
+        LexicalFallback --> Shape
     end
 ```
 
-*   **Global Semantic Search (`POST /api/search`):**
-    *   **Vector Engine:** Natural language queries are sanitized, embedded using `gemini-embedding-001` (768-d Matryoshka cut), and compared against pre-embedded tool rows using raw SQL `$queryRawUnsafe` with cosine distance (`<=>`).
-    *   **Calibrated Threshold (`>= 0.62`):** Cosine similarities below `0.62` represent noise/nonsense and cleanly redirect the user to a gorgeous, interactive empty state with category suggestions.
-    *   **Hybrid Deduping:** Runs DB vector search and Gemini live discovery in parallel using `Promise.allSettled`, deduping by name where the DB row always takes precedence.
-*   **Lexical Canvas Drawer (`GET /api/tools/search`):**
-    *   Cheap, fast lexical scan querying fields using Prisma `contains`.
-    *   Utilizes a custom **Deterministic Token-Overlap Ranker** (`lib/tool-ranking.ts`) awarding weighted bonuses: exact name match (`+100`), starts-with (`+60`), substring matches (`+40`), per-token bonuses, trust-score boosts, and AI-discovered explanation relevancy rewards.
-*   **Shareable `AI-First` Toggle:** Client-side toggle (`aiFirst=true` URL param) flips rendering order instantly on the search page and React Flow drawer, partitioning AI-discovered tools ahead of library tools.
+#### Multi-Vector Representation
+Unlike standard vector search, which encodes an entire tool row into a single diluted vector, Nori uses a **three-column vector schema** (`ToolEmbedding` model):
+*   `nameVec`: Vector representation of the tool's name.
+*   `taglineVec`: Vector representation of the tool's tagline.
+*   `descriptionVec`: Vector representation of the tool's full description.
+
+All vectors are 3072 dimensions, generated using `gemini-embedding-001`, and stored in Neon Postgres as `halfvec(3072)` columns (reducing memory requirements to ~6KB per tool). HNSW cosine indexes (`halfvec_cosine_ops`) are maintained on all three columns.
+
+#### Reciprocal Rank Fusion (RRF)
+To merge lexical match relevance with semantic meaning, Nori runs a 4-way parallel retrieval using Common Table Expressions (CTEs), ranking candidates based on the formula:
+$$RRF(d) = \sum_{m \in M} \frac{1}{60 + r_m(d)}$$
+Where:
+*   $M$ represents the 4 ranking lists (`nameVec` HNSW, `taglineVec` HNSW, `descriptionVec` HNSW, and weighted `tsvector` lexical rank).
+*   $r_m(d)$ is the 1-based rank of document $d$ in ranker list $m$.
+
+To prevent HNSW search degradation when applying pre-filters (e.g., categories, platforms, pricing models), filters are pushed down into the HNSW search boundary. `ef_search` is set locally to `100` within the transaction scope to recover recall.
+
+#### HyDE Query Expansion
+Short search queries (< 4 tokens) carry weak semantic weight. Nori intercepts these queries and utilizes `gemini-flash-latest` to generate a 2-sentence hypothetical ideal tool description (HyDE). The hypothetical content is concatenated with the original query before embedding:
+$$\text{Query}_{\text{expanded}} = \text{Query}_{\text{original}} + ". " + \text{Query}_{\text{hypothetical}}$$
+This is cached in Upstash Redis for 7 days to eliminate latency overhead for common terms.
+
+#### Jina Cross-Encoder Reranking
+The top 20 candidates returned by RRF are piped to Jina's `jina-reranker-v2-base-multilingual` cross-encoder. It evaluates the query against the complete textual metadata (name, tagline, description, category, and tags). Candidates with a calibrated sigmoid relevance score below `0.3` are discarded. If Jina is rate-limited or unconfigured, Nori gracefully falls back to the RRF rank order.
+
+#### Lexical-Only Fallback
+If the Gemini embedding service experiences downtime, `searchTools` triggers a fail-safe fallback using weighted `tsvector` prefix scanning, ensuring that users can search Nori even during upstream AI outages.
 
 ---
 
-### 2. Autonomous Library Growth (AI Live-Discovery & Background Auto-Persist)
-When users search for tools outside Nori's curated database, a background engine springs to life:
-1.  **Live Discovery:** Nori hits `gemini-flash-latest` with a highly structured JSON-only prompt, returning up to 5 real-world tools matching the query.
-2.  **Fire-and-Forget Persistence:** The moment results return, Nori fires a background thread (`void persistDiscoveredTools(...)`) to write new items to Postgres immediately. The HTTP response is **never blocked** by database writes.
-3.  **Automatic Seeding & Vectorization:** The system slugifies the tool's name, upserts the row to handle concurrency safely, maps the category slug to standard categories, and launches an embedding process (`ToolEmbedding`) so the newly-discovered tool is instantly fully searchable semantically and lexically.
-4.  **Audit Trail:** Saves rows with `isAutoDiscovered: true` and defaults trust scores to `0.5` (curated tools are rated higher).
+### 2. Live Discovery & Autonomous Library Growth (`POST /api/search/discover`)
 
----
-
-### 3. Infinite React Flow Canvas (Neobrutalist Workflows)
-Authenticated users can create and edit shareable, multi-node tool chains on a beautiful React Flow canvas:
+To bypass the limits of pre-seeded library databases, Nori runs a live web-discovery cycle in parallel:
 
 ```mermaid
 graph LR
-    %% Infinite Canvas Interaction
-    User((Authenticated User)) --> Canvas[Infinite Canvas Client-side]
-    Canvas --> NodePicker[Tool Picker Drawer]
-    NodePicker --> SearchAPI[api/tools/search]
-    SearchAPI --> Node[Visual ToolNode with Logo & Description]
-    Node --> EditUseCase[Click-to-edit useCase state]
-    Node --> Reorder[Move Left/Right buttons]
-    Reorder --> Edges[Auto-wires Edge Connections in order]
-    Canvas --> Save[Save button Clerk-authenticated]
-    Save --> Transaction[Prisma Transaction: Wipes & rewrites Nodes & Ededges]
+    %% Live Discovery Lifecycle
+    Query[User Query] --> GeminiDiscovery[Gemini Flash Live Discovery]
+    GeminiDiscovery --> Parse[JSON Parsing & validation]
+    Parse --> Dedupe{Case-Insensitive Deduplication vs DB}
+    Dedupe -- Exists in DB --> Discard[Discard Discovery]
+    Dedupe -- New Tool --> ReturnClient[Stream to Client Results]
+    ReturnClient --> Persist[Background Task: persistDiscoveredTools]
+    Persist --> Seed[1. Slugify & Write to AiTool table]
+    Seed --> Category[2. Resolve Category & tags]
+    Category --> Vectorize[3. Generate nameVec / taglineVec / descriptionVec]
+    Vectorize --> EmbedWrite[4. Write halfvec rows & trigger HNSW updates]
 ```
 
-*   **Custom Tool Nodes:** Features custom `<ToolNode>` layout with editable use cases (inline edit state on click, save on blur/Enter, revert on Escape) and delete confirmations.
-*   **Auto-Wiring Topological Edges:** Nodes automatically wire up sequentially via sequential `order` lists and a strict custom edge list (`WorkflowEdge` model). Rearranging nodes instantly rewires the connections client-side.
-*   **Clerk-Protected API:** Workflows verify user authentication via `auth()` in Next.js server components (never trust request body user IDs). Private workflows return a **403 Forbidden** instead of a 404 for unauthenticated/unauthorized lookups.
-*   **SSR Mount-Gate Guard:** Combats React Flow hydration bugs by utilizing a strict client-side mount gate and `<ReactFlowProvider>` context, showing a playful spinner while mounting.
+1.  **Parallel Execution:** The frontend search client fires both the database search and the live discovery in parallel. The database results render instantly, while AI results stream in 2-3 seconds later.
+2.  **Structured Generation:** `gemini-flash-latest` runs a highly structured, JSON-schema constrained generation, returning up to 5 real tools matching the query.
+3.  **Fire-and-Forget Auto-Persistence:** Discovered tools are returned to the client and immediately dispatched to a non-blocking background thread (`lib/auto-library.ts`). The API response completes without waiting on DB writes.
+4.  **Database Vectorization:** The background job slugifies the name, upserts the row to handle race conditions, maps the AI category to a database category ID, and runs embedding generations so the new tool is indexed semantically and lexically. Auto-discovered tools default to a trust score of `0.5` (curated tools are rated higher).
 
 ---
 
-### 4. Resilient Media & Core Component Assets
-*   **Resilient Fallback Logo Chain (`<ToolLogo>`):** Combats parallel network latency and rate limits (e.g. Clearbit icon limitations) using a robust visual pipeline:
-    $$\text{Clearbit Logo API} \longrightarrow \text{Google Favicon API} \longrightarrow \text{Deterministic Monogram avatar} \ (\text{ToolAvatar})$$
-    The system renders a `<ToolAvatar>` background first, fading the actual image in with a smooth CSS transition only *after* a successful `onLoad`.
-*   **TLS Warming / DNS Preconnect:** Injects `<link rel="preconnect" href="https://logo.clearbit.com" />` and `<link rel="preconnect" href="https://www.google.com" />` hints into `app/layout.tsx` to pre-warm SSL handshakes for high-concurrency tool grid rendering.
-*   **Strict Mobile Responsiveness:**
-    *   A full mobile hamburger navigation menu designed to be easily clickable, auto-closing on navigation via pathname keys.
-    *   Username layout header wraps gracefully using full width cards and scales down text sizes on phones (`sm` stacks vertically).
-    *   **Focus-Zoom Mitigation:** Forms and select components scale to `text-base` (16px) on mobile breakpoints, completely preventing iOS auto-zoom layout disruption.
+### 3. Infinite React Flow Canvas (`/workflows`)
+
+Authenticated users can construct, arrange, and save multi-node tool chains on a digital canvas:
+
+```mermaid
+graph TD
+    %% React Flow Canvas architecture
+    subgraph Canvas [Infinite Canvas Lifecycle]
+        Init[Hydration Mount-Gate Guard] --> ReactFlow[ReactFlowProvider Container]
+        ReactFlow --> CustomNode[Custom ToolNode Components]
+        ReactFlow --> EdgeGen[Memoized Sequence Edge Generator]
+        ReactFlow --> Drawer[Fast Lexical Tool Drawer]
+    end
+    
+    Drawer --> LexicalSearch[api/tools/search]
+    LexicalSearch --> Ranking[Deterministic Token-Overlap Ranking]
+    Ranking --> DragNode[Add Node to Canvas]
+    
+    DragNode --> ClickEdit[Click-to-Edit Inline Use Case]
+    ClickEdit --> Reorder[Move Left / Move Right Controls]
+    Reorder --> Save[Save Workflow]
+    Save --> Transaction[Prisma Transaction: Wipe & Re-write nodes]
+```
+
+*   **Fast Lexical Canvas Search (`GET /api/tools/search`):** Powered by prefix-matching tsqueries. If the query exceeds 1 character, it performs a fast Gemini discovery scan. Results are ordered using a deterministic token-overlap ranker (`lib/tool-ranking.ts`), awarding bonuses for exact matches, substring alignment, and AI relevancy.
+*   **Custom Node Nodes:** Custom `<ToolNode>` layout with editable use cases (inline edit state on click, save on blur/Enter, revert on Escape) and delete confirmations.
+*   **Memoized Sequence Wiring:** Nodes auto-wire sequentially via a computed `order` index. Repositioning or reordering nodes using canvas arrows instantly rebuilds the edge array client-side using `useMemo`.
+*   **Prisma Write Transactions:** Saving a workflow executes a single transactional database write that wipes existing nodes/edges and rewires the active structure, preventing orphaned records.
+*   **Next.js Hydration Mount-Gate:** React Flow utilizes browser layout APIs (`ResizeObserver`, `document`) that trigger hydration errors during Next.js SSR passes. Nori blocks rendering behind a client-side `mounted` state gate, showing a stylized loading spinner until the DOM is hydrated.
 
 ---
 
-### 5. Enriched Analytics Tracking (PostHog Taxonomy)
-Rather than relying on generic and noisy PostHog autocapture, Nori runs a structured, fully explicit tracking catalog:
+### 4. Resilient Logo Loading & TLS Warming
 
-| Event Name | Key Triggers | Payload Details |
+*   **Robust Fallback Pipeline (`<ToolLogo>`):** Combats network latency and logo service rate-limiting by executing a cascading image loading strategy:
+    $$\text{Clearbit Logo API} \longrightarrow \text{Google Favicon API} \longrightarrow \text{Deterministic Monogram Avatar}$$
+    The component draws a SVG gradient monogram `<ToolAvatar>` as a background placeholder, fading in the web image via CSS transitions once `onLoad` fires.
+*   **TLS Warming / DNS Preconnect:** Injects `<link rel="preconnect" href="https://logo.clearbit.com" />` and `<link rel="preconnect" href="https://www.google.com" />` hints into the layout document to pre-warm handshakes for grids containing dozens of external tool logos.
+
+---
+
+## 📊 Analytics Schema (PostHog Event Catalog)
+
+Nori implements an explicit, structured event taxonomy rather than relying on noisy autocapture:
+
+| Event Name | Trigger Context | Payload Parameters |
 | :--- | :--- | :--- |
-| **`search_performed`** | Triggered on natural language query submission | `query`, `result_count`, `db_count`, `ai_count`, `no_results`, `ai_first`, `source_filter`, `filters` |
-| **`search_result_clicked`** | Fires when clicking any card on the search results | `tool_slug`, `tool_name`, `source` (`'db'` or `'gemini'`), `position` (0-indexed position within card group), `query` |
-| **`tool_viewed`** | Fires on mounting a tool's detail page | `tool_slug`, `tool_name` |
-| **`tool_website_clicked`** | Fires on clicking an external link to the tool | `tool_slug`, `tool_name` |
-| **`workflow_created`** | Save of a new workflow | `workflow_id`, `node_count`, `is_public`, `tool_names` |
-| **`workflow_updated`** | Successful patch of an existing workflow | `workflow_id`, `node_count`, `is_public`, `tool_names` |
-| **`workflow_viewed`** | Mounting a workflow detail page | `workflow_id`, `is_owner`, `is_public`, `node_count` |
-| **`workflow_deleted`** | Deletion of a workflow | `workflow_id` |
+| **`search_performed`** | Emitted when a semantic or fallback search is completed | `query`, `result_count`, `db_count`, `ai_count`, `no_results`, `ai_first`, `source_filter`, `filters` |
+| **`search_result_clicked`** | Emitted when a tool card is clicked on search results | `tool_slug`, `tool_name`, `source` (`'db'` \| `'gemini'`), `position`, `query` |
+| **`tool_viewed`** | Emitted when a user loads a tool details page | `tool_slug`, `tool_name` |
+| **`tool_website_clicked`** | Emitted when a user redirects to the tool's external website | `tool_slug`, `tool_name` |
+| **`workflow_created`** | Emitted when a user saves a new workflow to the canvas | `workflow_id`, `node_count`, `is_public`, `tool_names` |
+| **`workflow_updated`** | Emitted when an owner saves changes to a workflow | `workflow_id`, `node_count`, `is_public`, `tool_names` |
+| **`workflow_viewed`** | Emitted when a workflow detail page is mounted | `workflow_id`, `is_owner`, `is_public`, `node_count` |
+| **`workflow_deleted`** | Emitted when a workflow is removed | `workflow_id` |
 
 ---
 
-## 🛠️ Technology Stack
+## 🛠️ Technology Stack & Dependencies
 
-| Layer | Choice |
-| :--- | :--- |
-| **Framework** | Next.js **14.2.18** (App Router, Node runtime) |
-| **Language** | TypeScript 5.6 (`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`) |
-| **Styling** | Tailwind CSS 3.4 (with customized design tokens in config) |
-| **Animation** | Framer Motion 11 |
-| **Database & ORM** | Neon Serverless Postgres + `pgvector` + Prisma 5.22 |
-| **Authentication** | Clerk 5 (`/sign-in`, `/sign-up`, custom integration) |
-| **AI Models** | Gemini (`gemini-embedding-001` for vector embeddings, `gemini-flash-latest` for live discovery) |
-| **Canvas UI** | React Flow 11 |
+| Layer | Choice | Version |
+| :--- | :--- | :--- |
+| **Framework** | Next.js (App Router, Node.js Runtime) | `14.2.18` |
+| **Language** | TypeScript | `5.6` |
+| **Styling** | Tailwind CSS | `3.4` |
+| **Animation** | Framer Motion (named imports) | `11` |
+| **Authentication** | Clerk | `5` |
+| **Database & ORM** | Serverless Postgres (Neon) + `pgvector` & Prisma | `5.22` |
+| **Vector Engine** | `gemini-embedding-001` (3072 dimensions) | Beta |
+| **Discovery Model** | `gemini-flash-latest` | Latest |
+| **Rerank Model** | Jina `jina-reranker-v2-base-multilingual` | Latest |
+| **Canvas Core** | React Flow | `11` |
+| **Analytics** | PostHog (Client-side manual tracking) | `1.181.0` |
 
 ---
 
-## 📦 Directory Structure
+## 📂 Directory Layout
 
 ```
 nori/
@@ -163,7 +228,7 @@ nori/
 │   └── layout/                     # Custom site Header (hamburger aware) and Footer
 ├── lib/
 │   ├── db.ts                       # Singleton Prisma DB client
-│   ├── embeddings.ts               # Gemini embedding wrappers (768 dimensions)
+│   ├── embeddings.ts               # Gemini embedding wrappers (3072 dimensions)
 │   ├── search.ts                   # Raw pgvector SQL queries & search filters
 │   ├── gemini-discovery.ts         # Gemini flash live web-crawler response parsers
 │   ├── auto-library.ts             # Background library auto-persistence engine
@@ -172,6 +237,9 @@ nori/
 ├── prisma/
 │   ├── schema.prisma               # Prisma data schemas (AiTool, Workflow, Edges)
 │   └── seed.ts                     # Database seeder (hand-crafted tools + vectors)
+├── scripts/
+│   ├── eval-search.ts              # Mathematical query relevance evaluation suite
+│   └── migrate-multivec.ts         # Prisma migration helper for multivec support
 └── middleware.ts                   # In-memory sliding rate-limiter & Clerk router
 ```
 
@@ -179,18 +247,21 @@ nori/
 
 ## 🚀 Getting Started
 
-### 1. Prerequisites & Environment Variables
-Copy `.env.example` to `.env` and fill out the required secrets:
+### 1. Configure the Environment
+Clone `.env.example` to `.env` and fill out the required credentials:
 
 ```env
 # Database Credentials
 DATABASE_URL="postgresql://user:password@neon-host/dbname?sslmode=require"
 DIRECT_URL="postgresql://user:password@neon-host/dbname?sslmode=require"
 
-# AI Core
+# Gemini Core
 GEMINI_API_KEY="AIzaSy..."
 
-# Authentication (Clerk)
+# Jina Cross-Encoder Reranker
+JINA_API_KEY="jina_..."
+
+# Clerk Authentication
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
 CLERK_SECRET_KEY="sk_test_..."
 NEXT_PUBLIC_CLERK_SIGN_IN_URL="/sign-in"
@@ -198,56 +269,63 @@ NEXT_PUBLIC_CLERK_SIGN_UP_URL="/sign-up"
 NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL="/"
 NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL="/"
 
-# Analytics
+# Upstash Redis (HyDE Query Cache)
+UPSTASH_REDIS_REST_URL="https://...upstash.io"
+UPSTASH_REDIS_REST_TOKEN="..."
+
+# PostHog Analytics
 NEXT_PUBLIC_POSTHOG_KEY="phc_..."
 NEXT_PUBLIC_POSTHOG_HOST="https://us.i.posthog.com"
 ```
 
-### 2. Quick CLI Run
-Install dependencies, sync the DB with Postgres, seed curated vector tools, and fire up the development server:
+### 2. Local Setup & Initialization
 
 ```bash
-# Install dependencies
+# Install package dependencies
 npm install
 
-# Push Prisma schemas to Neon Database
+# Push local Prisma changes to the Neon Postgres database
 npm run db:push
 
-# Seed categories, curated tools, and pre-compute raw vectors
+# Generate Prisma Client & execute seed scripts to populate vectors
 npm run db:seed
 
-# Run dev server locally
+# Launch the development server
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) to view Nori!
+
+Visit `http://localhost:3000` to interact with your local instance of Nori.
 
 ---
 
-## 🧪 Quick Integration Testing
+## 🧪 Relevancy Evaluation Suite
 
-Run the following test scripts or `curl` operations to check system health:
+To maintain high search relevancy without relying on subjective tuning, Nori includes a mathematical evaluation script that runs search relevance benchmarks:
 
 ```bash
-# 1. Verify index response
-curl -I http://localhost:3000/
-
-# 2. Get list of tools
-curl http://localhost:3000/api/tools | jq '.tools | length'
-
-# 3. Test semantic search (pgvector + cosine search validation)
-curl -X POST http://localhost:3000/api/search \
-  -H 'content-type: application/json' \
-  -d '{"query":"local llm runner"}' | jq '.results[0].slug'
-
-# 4. Check empty / nonsense query redirection (MIN_RELEVANT_SCORE threshold check)
-curl -X POST http://localhost:3000/api/search \
-  -H 'content-type: application/json' \
-  -d '{"query":"xqzjklmnop"}' | jq '.noResults'
-
-# 5. Check fast drawer lexical search
-curl 'http://localhost:3000/api/tools/search?q=video' | jq '.results | length'
+npm run eval:search
 ```
+
+The script evaluates a catalog of hand-labeled queries representing direct intent, adjacent intent, tag-style queries, and nonsense terms. It outputs:
+*   **nDCG@10 (Normalized Discounted Cumulative Gain):** Validates rank order, ensuring the most relevant tools appear at the top.
+*   **P@10 (Precision at 10):** Measures the density of relevant results in the top 10 positions.
+*   **R@10 (Recall at 10):** Measures the retrieval coverage relative to all known relevant items in the library.
+*   **HyDE & Rerank telemetry:** Outlines exactly when HyDE triggered and how the Jina reranker behaved.
 
 ---
 
-🥬 Built with passion, thick borders, and heavy drop shadows by the Nori Team.
+## 🤝 Contribution Guidelines
+
+We welcome contributions from the open-source community! To maintain Nori's code quality and performance profiles, please adhere to these guidelines:
+
+1.  **Strict Styling Isolation:** Do not install third-party UI component libraries (e.g. Radix, Shadcn) or styling utilities. Use native CSS, tailwind utility classes, or custom SVG components.
+2.  **No Zod or Heavy Parsers:** Input verification should remain light. Write custom validation blocks in `lib/sanitize.ts` using native strings and regular expressions.
+3.  **Strict TypeScript:** Keep strict type-checking on (`noUncheckedIndexedAccess`, `strict`, `exactOptionalPropertyTypes`). Ensure optional properties are handled safely.
+4.  **Logo Loading Architecture:** When building components that display tool logos, always wrap the image source inside a `<ToolLogo>` tag to benefit from preconnect DNS hooks and monogram failover cascades.
+5.  **React Flow Mount Guards:** Never instantiate `<ReactFlow>` outside of a mount-gate check (verifying that the DOM has hydrated) to prevent layout breakages.
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
