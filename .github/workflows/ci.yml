@@ -29,7 +29,9 @@ jobs:
 
     services:
       postgres:
-        image: ankane/pgvector:v0.5.1
+        # Official pgvector image (pgvector ≥ 0.7.0) — required for halfvec type.
+        # ankane/pgvector is frozen at v0.5.1 which predates halfvec.
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
