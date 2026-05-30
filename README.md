@@ -9,6 +9,7 @@
 ```
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Nori CI](https://github.com/Nyx-abu/nori/actions/workflows/ci.yml/badge.svg)](https://github.com/Nyx-abu/nori/actions/workflows/ci.yml)
 [![Next.js](https://img.shields.io/badge/Next.js-14.2.18-black?logo=next.js)](https://nextjs.org)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38bdf8?logo=tailwind-css)](https://tailwindcss.com)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue?logo=typescript)](https://www.typescriptlang.org)
@@ -311,6 +312,16 @@ The script evaluates a catalog of hand-labeled queries representing direct inten
 *   **P@10 (Precision at 10):** Measures the density of relevant results in the top 10 positions.
 *   **R@10 (Recall at 10):** Measures the retrieval coverage relative to all known relevant items in the library.
 *   **HyDE & Rerank telemetry:** Outlines exactly when HyDE triggered and how the Jina reranker behaved.
+
+---
+
+## ⚙️ CI/CD Pipeline
+
+Nori utilizes **GitHub Actions** for continuous integration to maintain strict code quality standards:
+*   **Quality Gates**: Code style formatting and lints (`npm run lint`), TypeScript typing verification (`npx tsc --noEmit`), and production compiling (`npm run build`) run automatically on all PRs.
+*   **Database Integrations**: Spins up a local Docker container running PostgreSQL with the `pgvector` extension, pushes the schema, and generates the Prisma client.
+*   **Search Relevance Auditing**: Runs search quality benchmarks (`npm run eval:search`) dynamically if `GEMINI_API_KEY` and `JINA_API_KEY` are provided in repository secrets.
+*   **Security Auditing**: Audits package dependencies for vulnerabilities (`npm audit`).
 
 ---
 
