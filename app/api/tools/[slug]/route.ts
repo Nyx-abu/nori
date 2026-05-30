@@ -26,7 +26,7 @@ export async function GET(
     }
     return NextResponse.json(shapeTool(tool))
   } catch (err) {
-    console.error('tool detail error', err)
+    console.error('tool detail error', err instanceof Error ? err.message : String(err))
     const body: ApiError = { error: 'Failed to load tool', code: 'TOOL_LOAD_FAILED' }
     return NextResponse.json(body, { status: 500 })
   }

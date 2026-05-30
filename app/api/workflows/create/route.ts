@@ -80,7 +80,7 @@ export async function POST(req: Request) {
     })
     return NextResponse.json({ workflowId: created.id }, { status: 201 })
   } catch (e) {
-    console.error('workflow create error', e)
+    console.error('workflow create error', e instanceof Error ? e.message : String(e))
     return err('Failed to create workflow', 'CREATE_FAILED', 500)
   }
 }

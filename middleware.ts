@@ -62,7 +62,11 @@ function isRateLimited(ip: string, path: string): boolean {
     return true
   }
   bucket.hits.push(now)
-  buckets.set(key, bucket)
+  if (bucket.hits.length === 0) {
+    buckets.delete(key)
+  } else {
+    buckets.set(key, bucket)
+  }
   return false
 }
 
@@ -71,8 +75,8 @@ export default clerkMiddleware((auth, req) => {
 
   if (path.startsWith('/api/')) {
     const ip =
-      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
       req.headers.get('x-real-ip') ||
+      req.headers.get('x-forwarded-for')?.split(',').at(-1)?.trim() ||
       'anonymous'
     if (isRateLimited(ip, path)) {
       return NextResponse.json(
@@ -88,7 +92,26 @@ export default clerkMiddleware((auth, req) => {
     auth().protect()
   }
 
-  return NextResponse.next()
+  let response = NextResponse.next()
+  
+  const csp = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://clerk.accounts.dev https://us.posthog.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: https://logo.clearbit.com https://www.google.com https://img.clerk.com",
+    "connect-src 'self' https://*.clerk.accounts.dev https://us.posthog.com https://generativelanguage.googleapis.com",
+    "frame-ancestors 'none'",
+  ].join('; ')
+
+  response.headers.set('X-Frame-Options', 'DENY')
+  response.headers.set('X-Content-Type-Options', 'nosniff')
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  response.headers.set('Content-Security-Policy', csp)
+  response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload')
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()')
+
+  return response
 })
 
 export const config = {

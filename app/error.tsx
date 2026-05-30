@@ -10,7 +10,7 @@ export default function Error({
   reset: () => void
 }) {
   useEffect(() => {
-    console.error('app error', error)
+    console.error('app error', error instanceof Error ? error.message : String(error))
   }, [error])
   return (
     <div className="mx-auto max-w-3xl px-4 py-24 sm:px-6">

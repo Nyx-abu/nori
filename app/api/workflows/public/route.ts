@@ -30,7 +30,6 @@ export async function GET(req: Request) {
     title: wf.title,
     description: wf.description,
     isPublic: wf.isPublic,
-    authorId: wf.authorId,
     authorName: wf.authorName,
     authorImage: wf.authorImage,
     createdAt: wf.createdAt.toISOString(),

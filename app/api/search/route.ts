@@ -115,14 +115,14 @@ export async function POST(req: Request) {
       query,
       count: results.length,
       noResults: results.length === 0,
-      meta,
+      ...(process.env.NODE_ENV === 'development' ? { meta } : { meta: {} as SearchMeta }),
     }
 
     void cacheSet(cacheKey, response, 12 * 60 * 60)
 
     return NextResponse.json(response)
   } catch (err) {
-    console.error('search error', err)
+    console.error('search error', err instanceof Error ? err.message : String(err))
     return bad('Search failed', 'SEARCH_FAILED', 500)
   }
 }

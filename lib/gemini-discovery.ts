@@ -83,7 +83,7 @@ export async function discoverToolsWithGemini(
     ? tags.slice(0, 200).map((t) => `"${t.slug}"`).join(', ')
     : 'none yet'
 
-  const prompt = `You are an AI tool discovery engine. A user is searching for: "${query}"
+  const prompt = `You are an AI tool discovery engine. A user is searching for: ${JSON.stringify(query)}
 
 Return a JSON array of up to 5 real, currently available AI tools that best match this query.
 

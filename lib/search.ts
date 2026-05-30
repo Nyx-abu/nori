@@ -89,6 +89,7 @@ async function fullRRFSearch(
   // SET LOCAL only applies inside a transaction — pgBouncer can recycle the connection otherwise and
   // leak the elevated ef_search to unrelated queries. Transaction scopes it to this one read.
   return prisma.$transaction(async (tx) => {
+    if (!Number.isInteger(HNSW_EF_SEARCH)) throw new Error('HNSW_EF_SEARCH must be an integer')
     await tx.$executeRawUnsafe(`SET LOCAL hnsw.ef_search = ${HNSW_EF_SEARCH}`)
 
     const rows = await tx.$queryRawUnsafe<{ toolId: string; score: number }[]>(

@@ -20,6 +20,8 @@ function isValidCuid(s: string): boolean {
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   if (!isValidCuid(params.id)) return err('Invalid id', 'INVALID_ID', 400)
 
+  const { userId } = auth()
+  
   const wf = await prisma.workflow.findUnique({
     where: { id: params.id },
     include: {
@@ -27,11 +29,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       edges: true,
     },
   })
+  
   if (!wf) return err('Workflow not found', 'NOT_FOUND', 404)
 
   if (!wf.isPublic) {
-    const { userId } = auth()
-    if (!userId) return err('Sign in required', 'UNAUTHORIZED', 401)
+    if (!userId) return err('Workflow not found', 'NOT_FOUND', 404)
     if (userId !== wf.authorId) return err('Forbidden', 'FORBIDDEN', 403)
   }
 
@@ -40,7 +42,6 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     title: wf.title,
     description: wf.description,
     isPublic: wf.isPublic,
-    authorId: wf.authorId,
     authorName: wf.authorName,
     authorImage: wf.authorImage,
     createdAt: wf.createdAt.toISOString(),
@@ -143,7 +144,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     })
     return NextResponse.json({ ok: true })
   } catch (e) {
-    console.error('workflow patch error', e)
+    console.error('workflow patch error', e instanceof Error ? e.message : String(e))
     return err('Failed to update workflow', 'UPDATE_FAILED', 500)
   }
 }

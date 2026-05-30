@@ -97,7 +97,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(response)
   } catch (err) {
-    console.error('discover error', err)
+    console.error('discover error', err instanceof Error ? err.message : String(err))
     return bad('Discovery failed', 'DISCOVER_FAILED', 500)
   }
 }

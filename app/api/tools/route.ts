@@ -42,7 +42,7 @@ export async function GET(req: Request) {
       page,
     })
   } catch (err) {
-    console.error('tools list error', err)
+    console.error('tools list error', err instanceof Error ? err.message : String(err))
     const body: ApiError = { error: 'Failed to list tools', code: 'LIST_FAILED' }
     return NextResponse.json(body, { status: 500 })
   }

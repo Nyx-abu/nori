@@ -62,6 +62,14 @@ export type SanitizedWorkflow = {
   edges: WorkflowEdgeInput[]
 }
 
+function isValidHostname(s: string): boolean {
+  try {
+    return new URL(`https://${s}`).hostname === s
+  } catch {
+    return false
+  }
+}
+
 // Accept any reasonable stable id format: cuid, uuid-with-or-without-dashes, our n_ prefix.
 // We don't care about exact format — only that it's a printable, length-bounded ASCII slug
 // that can safely round-trip through the DB primary key column.
@@ -108,7 +116,7 @@ export function sanitizeWorkflowInput(raw: unknown): SanitizedWorkflow | null {
           ? item.toolSlug.slice(0, 100)
           : null,
       toolDomain:
-        typeof item.toolDomain === 'string' && item.toolDomain.length > 0
+        typeof item.toolDomain === 'string' && item.toolDomain.length > 0 && isValidHostname(item.toolDomain.slice(0, 253))
           ? item.toolDomain.slice(0, 253)
           : null,
       useCase:
