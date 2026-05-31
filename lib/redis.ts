@@ -3,6 +3,7 @@
 // missing/expired credentials never break a request path. Use cached() for the common
 // read-through pattern; reach for the lower-level client only when you need MULTI/etc.
 import { Redis } from '@upstash/redis'
+import { createHash } from 'crypto'
 
 const url = process.env.UPSTASH_REDIS_REST_URL
 const token = process.env.UPSTASH_REDIS_REST_TOKEN
@@ -63,15 +64,13 @@ export async function cacheDel(key: string): Promise<void> {
 }
 
 /**
- * Stable, collision-resistant hash for cache keys built from user-controlled query strings
- * and filter objects. djb2 is sufficient for cache keying (we only need bucketing, not
- * cryptographic strength). Output is hex, prefixed length-limited at 16 chars.
+ * Stable hash for cache keys built from user-controlled query strings and filter objects.
+ * 16 hex chars = 64 bits of entropy → birthday collisions kick in around ~4B distinct
+ * inputs, vs ~65k for the previous djb2 32-bit hash. Cache-key cross-contamination
+ * between unrelated queries is the failure mode we're guarding against, not adversarial
+ * collisions, so a truncated SHA-256 is the cheap fit.
  */
 export function stableHash(input: unknown): string {
   const s = typeof input === 'string' ? input : JSON.stringify(input)
-  let h = 5381
-  for (let i = 0; i < s.length; i++) {
-    h = ((h << 5) + h + s.charCodeAt(i)) >>> 0
-  }
-  return h.toString(16).padStart(8, '0')
+  return createHash('sha256').update(s).digest('hex').slice(0, 16)
 }

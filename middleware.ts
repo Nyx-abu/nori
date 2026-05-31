@@ -31,9 +31,34 @@ const isProtectedRoute = createRouteMatcher([
 ])
 
 // in-memory sliding window — resets on cold start (acceptable for MVP)
-type Bucket = { hits: number[] }
+type Bucket = { hits: number[]; lastSeen: number }
 const buckets = new Map<string, Bucket>()
 const WINDOW_MS = 60_000
+// Longest rate-limit window currently in use (wf-create = 1h). A bucket idle longer than
+// this can't influence any future decision, so the sweep can safely drop it.
+const MAX_WINDOW_MS = 60 * 60_000
+const SWEEP_EVERY = 200
+const MAX_BUCKETS = 50_000
+
+let callsSinceSweep = 0
+
+function sweepIdle(now: number) {
+  for (const [key, b] of buckets) {
+    if (now - b.lastSeen > MAX_WINDOW_MS) buckets.delete(key)
+  }
+}
+
+function evictToCap() {
+  if (buckets.size <= MAX_BUCKETS) return
+  // Hit the hard cap — IP rotation outpaced the idle sweep. Drop oldest-seen entries
+  // until back under cap. O(n log n) only on the rare eviction path.
+  const sorted = [...buckets.entries()].sort((a, b) => a[1].lastSeen - b[1].lastSeen)
+  const toDrop = buckets.size - MAX_BUCKETS
+  for (let i = 0; i < toDrop; i++) {
+    const entry = sorted[i]
+    if (entry) buckets.delete(entry[0])
+  }
+}
 
 function rateLimitKey(ip: string, path: string) {
   // /api/search and /api/search/discover get separate buckets so the paired-call pattern from the
@@ -55,18 +80,22 @@ function isRateLimited(ip: string, path: string): boolean {
   const key = rateLimitKey(ip, path)
   const now = Date.now()
   const { count: limit, windowMs } = limitFor(path)
-  const bucket = buckets.get(key) ?? { hits: [] }
+
+  if (++callsSinceSweep >= SWEEP_EVERY) {
+    callsSinceSweep = 0
+    sweepIdle(now)
+    evictToCap()
+  }
+
+  const bucket = buckets.get(key) ?? { hits: [], lastSeen: now }
   bucket.hits = bucket.hits.filter((t) => now - t < windowMs)
+  bucket.lastSeen = now
   if (bucket.hits.length >= limit) {
     buckets.set(key, bucket)
     return true
   }
   bucket.hits.push(now)
-  if (bucket.hits.length === 0) {
-    buckets.delete(key)
-  } else {
-    buckets.set(key, bucket)
-  }
+  buckets.set(key, bucket)
   return false
 }
 
@@ -74,9 +103,12 @@ export default clerkMiddleware((auth, req) => {
   const path = req.nextUrl.pathname
 
   if (path.startsWith('/api/')) {
+    // x-forwarded-for chain is client, proxy1, proxy2, …, edge. The first entry is the
+    // original client added by the closest trusted proxy. .at(-1) would pin to the edge
+    // node and collapse every visitor behind that node into one bucket.
     const ip =
       req.headers.get('x-real-ip') ||
-      req.headers.get('x-forwarded-for')?.split(',').at(-1)?.trim() ||
+      req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
       'anonymous'
     if (isRateLimited(ip, path)) {
       return NextResponse.json(
