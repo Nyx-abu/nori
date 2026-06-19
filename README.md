@@ -16,10 +16,11 @@
 [![React Flow](https://img.shields.io/badge/React_Flow-11-ff007f?logo=react)](https://reactflow.dev)
 [![Clerk](https://img.shields.io/badge/Auth-Clerk_5-6c47ff?logo=clerk)](https://clerk.com)
 [![Database](https://img.shields.io/badge/Database-Neon_Postgres-00e599?logo=postgresql)](https://neon.tech)
+[![Last Updated](https://img.shields.io/badge/Last_Updated-June_2026-brightgreen)](#)
 
-> **Nori is a professional, visual-first AI tool discovery platform and infinite canvas workflow builder. It allows users to search for AI tools using advanced semantic query pipelines, discover new tools in real-time, and compose them into interactive, multi-node step-by-step workflows.**
+> **Nori is a visual-first AI tool discovery platform and infinite canvas workflow builder.** Search for AI tools using multi-vector semantic retrieval with RRF fusion, discover new tools in real-time via Gemini live discovery, and compose them into shareable, multi-node step-by-step workflows — all on an interactive React Flow canvas.
 
-Featuring a vibrant, high-contrast **Neobrutalist Pop-Art** design language, Nori is built for maximum responsiveness, visual engagement, and robust reliability under high load.
+Featuring a vibrant, high-contrast **Neobrutalist Pop-Art** design language with springy Framer Motion physics, Nori is built for maximum responsiveness, visual engagement, and robust reliability under high load.
 
 ---
 
