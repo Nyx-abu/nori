@@ -9,6 +9,9 @@ import { PostHogPageView } from './_components/PostHogPageView'
 import { PostHogIdentify } from './_components/PostHogIdentify'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
+import { ThemeProvider } from '@/components/layout/ThemeProvider'
+import { LenisProvider } from '@/components/layout/LenisProvider'
+import { CustomCursor } from '@/components/ui/CustomCursor'
 
 const outfit = Outfit({
   subsets: ['latin'],
@@ -37,16 +40,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <link rel="dns-prefetch" href="https://logo.clearbit.com" />
           <link rel="dns-prefetch" href="https://www.google.com" />
         </head>
-        <body className="relative min-h-screen bg-background font-sans text-text-primary antialiased overflow-x-hidden">
-          <PostHogProvider>
-            <Suspense fallback={null}>
-              <PostHogPageView />
-            </Suspense>
-            <PostHogIdentify />
-            <Header />
-            <main>{children}</main>
-            <Footer />
-          </PostHogProvider>
+        <body className="relative min-h-screen bg-background font-sans text-text-primary antialiased overflow-x-hidden transition-colors duration-enter cursor-none">
+          <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+            <LenisProvider>
+              <CustomCursor />
+              <PostHogProvider>
+                <Suspense fallback={null}>
+                  <PostHogPageView />
+                </Suspense>
+                <PostHogIdentify />
+                <Header />
+                <main>{children}</main>
+                <Footer />
+              </PostHogProvider>
+            </LenisProvider>
+          </ThemeProvider>
         </body>
       </html>
     </ClerkProvider>

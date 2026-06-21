@@ -23,7 +23,7 @@ export default function HomePage() {
         <Hero />
       </div>
 
-      <WaveDivider topColor="#F19CBB" bottomColor="#D4AF37" />
+      <WaveDivider topColor="hsl(var(--accent-pink))" bottomColor="hsl(var(--accent-glow))" />
 
       <div className="bg-accent-glow pb-16">
         {/* Decorative Art 1 flanking Featured Tools */}
@@ -47,7 +47,7 @@ export default function HomePage() {
         </Suspense>
       </div>
 
-      <WaveDivider topColor="#D4AF37" bottomColor="#FDFBF7" />
+      <WaveDivider topColor="hsl(var(--accent-glow))" bottomColor="hsl(var(--background))" />
 
       <div className="bg-background pb-16">
         {/* Decorative Art 2 flanking Category Grid */}
@@ -71,7 +71,7 @@ export default function HomePage() {
         </Suspense>
       </div>
 
-      <WaveDivider topColor="#FDFBF7" bottomColor="#74A4F2" />
+      <WaveDivider topColor="hsl(var(--background))" bottomColor="hsl(var(--accent-blue))" />
 
       <div className="bg-accent-blue pb-20 pt-8">
         {/* Decorative Art 3 flanking Workflow Showcase */}

@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
+import { ThemeToggle } from '../ui/ThemeToggle'
 
 type NavItem = { href: string; label: string; hoverBg: string }
 
@@ -65,10 +66,14 @@ export function Header() {
               Sign in
             </Link>
           </SignedOut>
+          <div className="ml-2">
+            <ThemeToggle />
+          </div>
         </nav>
 
         {/* Mobile: UserButton (if signed in) + hamburger */}
         <div className="flex items-center gap-2 md:hidden">
+          <ThemeToggle />
           <SignedIn>
             <UserButton afterSignOutUrl="/" />
           </SignedIn>
