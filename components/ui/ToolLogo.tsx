@@ -60,6 +60,7 @@ export function ToolLogo({ name, domain, size = 44, className, framed = false }:
       >
         <ToolAvatar name={name} size={size} />
       </div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         // key forces a fresh <img> when src changes so onLoad fires for each new attempt
         key={src}

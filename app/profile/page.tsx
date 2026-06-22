@@ -64,6 +64,7 @@ export default function ProfilePage() {
       <div className="flex flex-col gap-4 rounded-xl border-2 border-border bg-surface p-5 shadow-[6px_6px_0px_#1A1A1A] sm:flex-row sm:items-center sm:p-6">
         <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
           {user.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={user.imageUrl}
               alt={name}
