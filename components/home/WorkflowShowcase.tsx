@@ -12,7 +12,7 @@ const stack: Step[] = [
 export function WorkflowShowcase() {
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6">
-      <div className="rounded-xl border border-border bg-surface p-6 sm:p-10">
+      <div className="rounded-xl border-4 border-border bg-surface p-6 shadow-[8px_8px_0px_#1A1A1A] sm:p-10 font-bold">
         <p className="text-2xs uppercase tracking-widest text-text-muted">
           example workflow
         </p>
@@ -28,7 +28,7 @@ export function WorkflowShowcase() {
             <Fragment key={s.slug}>
               <a
                 href={`/tools/${s.slug}`}
-                className="flex flex-1 items-center gap-3 rounded-lg border border-border bg-surface-2 p-4 transition-colors duration-base ease-enter hover:border-accent"
+                className="flex flex-1 items-center gap-3 rounded-lg border-2 border-border bg-surface-2 p-4 shadow-[4px_4px_0px_#1A1A1A] transition-all duration-fast ease-enter hover:-translate-y-1 hover:shadow-[6px_6px_0px_#1A1A1A] hover:bg-surface"
               >
                 <ToolAvatar name={s.name} size={40} />
                 <div className="min-w-0">

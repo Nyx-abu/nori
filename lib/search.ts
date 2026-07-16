@@ -190,8 +190,13 @@ function buildRerankerDoc(t: {
 
 export async function searchTools(req: SearchRequest): Promise<SearchToolsResult> {
   const where = buildPrismaWhere(req.filters)
-  const eligible = await prisma.aiTool.findMany({ where, select: { id: true } })
-  const eligibleIds = eligible.map((r) => r.id)
+  let eligibleIds: string[] = []
+  try {
+    const eligible = await prisma.aiTool.findMany({ where, select: { id: true } })
+    eligibleIds = eligible.map((r) => r.id)
+  } catch (error) {
+    console.error('[search] eligibleIds query failed:', error)
+  }
 
   if (eligibleIds.length === 0) {
     return {

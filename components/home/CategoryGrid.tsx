@@ -18,7 +18,7 @@ export async function CategoryGrid() {
           <Link
             key={c.id}
             href={`/browse/${c.slug}`}
-            className="group flex items-center gap-3 rounded-lg border border-border bg-surface p-4 transition-colors duration-base ease-enter hover:border-accent hover:bg-surface-2"
+            className="group flex items-center gap-3 rounded-lg border-2 border-border bg-surface p-4 shadow-[4px_4px_0px_#1A1A1A] transition-all duration-fast ease-enter hover:-translate-y-1 hover:shadow-[6px_6px_0px_#1A1A1A] hover:bg-surface-2"
           >
             <span className="flex h-10 w-10 items-center justify-center rounded-md bg-surface-2 text-accent">
               <Icon path={c.icon} size={20} />

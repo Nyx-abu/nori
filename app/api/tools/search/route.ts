@@ -43,7 +43,12 @@ export async function GET(req: NextRequest) {
   const q = (req.nextUrl.searchParams.get('q') ?? '').slice(0, 200).trim()
 
   const cacheKey = `drawer:v3:${stableHash(q.toLowerCase())}`
-  const cached = await cacheGet<{ results: DrawerResult[]; query: string }>(cacheKey)
+  let cached: { results: DrawerResult[]; query: string } | null = null
+  try {
+    cached = await cacheGet<{ results: DrawerResult[]; query: string }>(cacheKey)
+  } catch (error) {
+    console.error('Cache error in drawer search:', error)
+  }
   if (cached) {
     return NextResponse.json({ ...cached, cached: true })
   }
@@ -54,38 +59,48 @@ export async function GET(req: NextRequest) {
 
   const tsquery = q.length > 0 ? buildPrefixTsQuery(q) : null
 
-  if (tsquery) {
-    // Raw SQL is necessary here — Prisma doesn't expose tsvector ops. We only need the ranked IDs;
-    // the full tool rows come from a follow-up findMany so we keep type-safe includes.
-    ranked = await prisma.$queryRawUnsafe<Row[]>(
-      `
-      SELECT id,
-             ts_rank_cd("searchVector", to_tsquery('english', $1))::double precision AS rank
-      FROM "AiTool"
-      WHERE "searchVector" @@ to_tsquery('english', $1)
-      ORDER BY rank DESC, "trustScore" DESC
-      LIMIT ${DRAWER_LIMIT};
-      `,
-      tsquery,
-    )
-  } else {
-    const rows = await prisma.aiTool.findMany({
-      select: { id: true },
-      orderBy: { trustScore: 'desc' },
-      take: DRAWER_LIMIT,
-    })
-    ranked = rows.map((r) => ({ id: r.id, rank: null }))
-  }
+  let dbRows: any[] = []
 
-  const orderById = new Map(ranked.map((r, i) => [r.id, i]))
-  const dbRows = ranked.length
-    ? await prisma.aiTool.findMany({
-        where: { id: { in: ranked.map((r) => r.id) } },
-        include: { category: true },
+  try {
+    if (tsquery) {
+      // Raw SQL is necessary here — Prisma doesn't expose tsvector ops. We only need the ranked IDs;
+      // the full tool rows come from a follow-up findMany so we keep type-safe includes.
+      ranked = await prisma.$queryRawUnsafe<Row[]>(
+        `
+        SELECT id,
+               ts_rank_cd("searchVector", to_tsquery('english', $1))::double precision AS rank
+        FROM "AiTool"
+        WHERE "searchVector" @@ to_tsquery('english', $1)
+        ORDER BY rank DESC, "trustScore" DESC
+        LIMIT ${DRAWER_LIMIT};
+        `,
+        tsquery,
+      )
+    } else {
+      const rows = await prisma.aiTool.findMany({
+        select: { id: true },
+        orderBy: { trustScore: 'desc' },
+        take: DRAWER_LIMIT,
       })
-    : []
+      ranked = rows.map((r) => ({ id: r.id, rank: null }))
+    }
 
-  dbRows.sort((a, b) => (orderById.get(a.id) ?? 99) - (orderById.get(b.id) ?? 99))
+    const orderById = new Map(ranked.map((r, i) => [r.id, i]))
+    dbRows = ranked.length
+      ? await prisma.aiTool.findMany({
+          where: { id: { in: ranked.map((r) => r.id) } },
+          include: { category: true },
+        })
+      : []
+
+    dbRows.sort((a, b) => (orderById.get(a.id) ?? 99) - (orderById.get(b.id) ?? 99))
+  } catch (error) {
+    console.error('Database error in drawer search:', error)
+    return NextResponse.json(
+      { error: 'Internal database error', code: 'DATABASE_ERROR' },
+      { status: 500 }
+    )
+  }
 
   const dbResults: DrawerResult[] = dbRows.map((t) => ({
     id: t.id,
@@ -135,6 +150,10 @@ export async function GET(req: NextRequest) {
   const finalResults = q.length > 0 ? rankToolsForQuery(combined, q) : combined
 
   const payload = { results: finalResults.slice(0, 25), query: q }
-  void cacheSet(cacheKey, payload, 60 * 60)
+  try {
+    void cacheSet(cacheKey, payload, 60 * 60)
+  } catch (error) {
+    console.error('Cache set error in drawer search:', error)
+  }
   return NextResponse.json(payload)
 }

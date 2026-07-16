@@ -10,8 +10,8 @@ export function slugify(name: string): string {
   return name
     .toLowerCase()
     .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '') // strip diacritics
-    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/[\u0300-\u036f]/g, '') // strip diacritics
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, SLUG_MAX)
 }

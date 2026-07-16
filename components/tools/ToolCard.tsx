@@ -24,11 +24,11 @@ export function ToolCard({ tool, className, compact = false }: Props) {
       href={`/tools/${tool.slug}`}
       tabIndex={0}
       className={cn(
-        'group block rounded-lg border border-border bg-surface p-5',
+        'group block rounded-lg border-2 border-border bg-surface shadow-[4px_4px_0px_#1A1A1A]',
         'min-h-[44px]',
-        'transition-all duration-base ease-enter',
-        'hover:border-border-hover hover:bg-surface-2 hover:scale-[1.02]',
-        'focus-visible:border-accent',
+        'transition-all duration-fast ease-enter',
+        'hover:bg-surface-2 hover:-translate-y-1 hover:shadow-[6px_6px_0px_#1A1A1A]',
+        'focus-visible:border-accent focus-visible:-translate-y-1 focus-visible:shadow-[6px_6px_0px_#1A1A1A]',
         compact ? 'p-4' : 'p-5',
         className,
       )}

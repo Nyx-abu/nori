@@ -94,7 +94,7 @@ export function ToolDetail({ tool }: { tool: ToolResult }) {
           onClick={onVisit}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex h-12 min-w-[44px] items-center justify-center gap-2 rounded-pill bg-accent px-6 text-sm font-medium text-white transition-colors duration-base ease-enter hover:bg-[#7679ff]"
+          className="inline-flex h-12 min-w-[44px] items-center justify-center gap-2 rounded-md border-2 border-border bg-accent px-6 text-sm font-extrabold text-surface shadow-[4px_4px_0px_#1A1A1A] transition-all duration-fast ease-enter hover:bg-accent-glow hover:text-text-primary hover:-translate-y-1 hover:shadow-[6px_6px_0px_#1A1A1A] active:translate-y-0 active:shadow-[2px_2px_0px_#1A1A1A]"
         >
           visit {tool.name}
           <svg
@@ -124,7 +124,7 @@ function Block({
   children: React.ReactNode
 }) {
   return (
-    <div className="rounded-lg border border-border bg-surface p-4">
+    <div className="rounded-lg border-2 border-border bg-surface p-4 shadow-[4px_4px_0px_#1A1A1A] font-bold">
       <p className="text-2xs uppercase tracking-widest text-text-muted">
         {label}
       </p>

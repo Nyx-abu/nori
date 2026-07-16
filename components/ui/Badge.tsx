@@ -10,7 +10,7 @@ type Props = React.HTMLAttributes<HTMLSpanElement> & {
 const toneClass: Record<Tone, string> = {
   neutral: 'bg-surface-2 text-text-primary border-border border-2 shadow-[2px_2px_0px_#1A1A1A]',
   accent: 'bg-accent-glow text-text-primary border-border border-2 shadow-[2px_2px_0px_#1A1A1A] font-bold',
-  success: 'bg-[#86efac] text-text-primary border-border border-2 shadow-[2px_2px_0px_#1A1A1A]',
+  success: 'bg-accent text-surface border-border border-2 shadow-[2px_2px_0px_#1A1A1A]',
   warning: 'bg-accent-pink text-text-primary border-border border-2 shadow-[2px_2px_0px_#1A1A1A]',
 }
 

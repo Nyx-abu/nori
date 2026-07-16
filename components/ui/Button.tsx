@@ -11,11 +11,11 @@ type Props = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const variantClass: Record<Variant, string> = {
   primary:
-    'bg-accent text-white hover:bg-[#7679ff] active:bg-[#5558e0] disabled:bg-[#2a2c66] disabled:text-[#9ea0d8]',
+    'bg-accent text-surface border-2 border-border shadow-[4px_4px_0px_#1A1A1A] hover:bg-accent-glow hover:text-text-primary hover:-translate-y-1 hover:shadow-[6px_6px_0px_#1A1A1A] active:translate-y-0 active:shadow-[2px_2px_0px_#1A1A1A] disabled:bg-surface-2 disabled:text-text-muted disabled:shadow-none disabled:border-text-muted disabled:translate-y-0',
   secondary:
-    'bg-surface-2 text-text-primary border border-border hover:border-border-hover',
+    'bg-surface-2 text-text-primary border-2 border-border shadow-[4px_4px_0px_#1A1A1A] hover:bg-surface hover:-translate-y-1 hover:shadow-[6px_6px_0px_#1A1A1A] active:translate-y-0 active:shadow-[2px_2px_0px_#1A1A1A]',
   ghost:
-    'bg-transparent text-text-secondary hover:text-text-primary hover:bg-surface-2',
+    'bg-transparent text-text-secondary border-2 border-transparent hover:text-text-primary hover:bg-surface-2 hover:border-border hover:shadow-[4px_4px_0px_#1A1A1A] hover:-translate-y-1 active:translate-y-0 active:shadow-[2px_2px_0px_#1A1A1A]',
 }
 
 const sizeClass: Record<Size, string> = {
@@ -33,8 +33,8 @@ export const Button = React.forwardRef<HTMLButtonElement, Props>(function Button
       ref={ref}
       type={type}
       className={cn(
-        'inline-flex items-center justify-center gap-2 font-medium',
-        'transition-colors duration-base ease-enter',
+        'inline-flex items-center justify-center gap-2 font-extrabold',
+        'transition-all duration-fast ease-enter',
         'disabled:cursor-not-allowed',
         variantClass[variant],
         sizeClass[size],

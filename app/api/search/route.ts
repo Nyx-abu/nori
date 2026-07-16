@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   } catch {
     return bad('Invalid JSON body', 'INVALID_JSON')
   }
-  if (!payload || typeof payload !== 'object') {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return bad('Request body must be an object', 'INVALID_BODY')
   }
 
