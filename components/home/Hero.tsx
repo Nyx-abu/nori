@@ -70,14 +70,17 @@ export function Hero() {
         </div>
 
         <div className="hidden w-full max-w-lg lg:block animate-slide-in" style={{ animationDelay: '400ms' }}>
-          <div className="animate-float">
-            <div className="rotate-[4deg] rounded-[40px] border-4 border-border bg-surface p-6 shadow-[12px_12px_0px_#1A1A1A]">
+          <div className="animate-float relative">
+            <div className="absolute -right-6 -top-6 z-20 rotate-12 rounded-full border-4 border-border bg-accent-pink px-4 py-2 text-xl font-black shadow-[4px_4px_0px_#1A1A1A]">
+              *BETA*
+            </div>
+            <div className="rotate-[4deg] rounded-[40px] border-4 border-border bg-accent-blue p-6 shadow-[12px_12px_0px_#1A1A1A] transition-all duration-base hover:-translate-y-4 hover:rotate-0 hover:shadow-[20px_20px_0px_#1A1A1A]">
               <Image
                 src="/hero-art.png"
-                alt="Isometric colorful robot"
+                alt="Platform features"
                 width={600}
                 height={600}
-                className="drop-shadow-[15px_15px_0px_rgba(26,26,26,0.15)]"
+                className="mix-blend-multiply"
                 priority
                 sizes="(min-width: 1024px) 500px, 0px"
               />
