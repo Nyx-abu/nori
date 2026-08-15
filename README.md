@@ -8,6 +8,9 @@
 |_| \_|\_____/|_| \_\|___|
 ```
 
+> ### [Try the Live Demo -> nori-gamma.vercel.app](https://nori-gamma.vercel.app) &nbsp; | &nbsp; **nDCG@10 = 0.84** &nbsp; | &nbsp; MIT License
+
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Nori CI](https://github.com/Nyx-abu/nori/actions/workflows/ci.yml/badge.svg)](https://github.com/Nyx-abu/nori/actions/workflows/ci.yml)
 [![Next.js](https://img.shields.io/badge/Next.js-14.2.18-black?logo=next.js)](https://nextjs.org)
